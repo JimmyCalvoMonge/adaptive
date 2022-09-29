@@ -151,11 +151,12 @@ class Adaptive():
         return x_3*(i**3) + x_2*(i**2) + x_1*i + x_0
 
     def solve_polynomial(self,cs,ci,cz,R0):
+        
         x = Symbol('x')
         resp = solve(self.evaluate_cubic(x,cs,ci,cz,R0), x)
         resp = [(float(expr.as_real_imag()[0]), float(expr.as_real_imag()[1]) ) for expr in resp]
         resp = [expr[0] for expr in resp if expr[0]>0 and abs(expr[1])<1e-15]
-
+        
         return resp
 
     ### Bifurcation plot with cs,ci,cz given as explicit varying constants by user.
@@ -172,7 +173,7 @@ class Adaptive():
             'R0':[],
             'i_opt':[]
         })
-    
+
         start=time.time()
         
         for j in range(len(css)):
@@ -190,9 +191,9 @@ class Adaptive():
                         'R0':[R0],
                         'i_opt':[root]
                     }),ignore_index=True)
-        
+
         end=time.time()
-        print(f"Computing Equilibria for kappas took {end-start} seconds.")
+        print(f"Computing Equilibria for kappas took {(end-start)/60} minutes.")
 
         fig = px.scatter(df_values_plot, x="R0", y="i_opt")
         fig.update_traces(marker=dict(size=7, line=dict(width=0.1, color='Black')))
