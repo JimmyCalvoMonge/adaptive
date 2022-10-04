@@ -83,7 +83,7 @@ if __name__ == '__main__':
     
     with Manager() as manager:
 
-        rang=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
+        rang=list(np.linspace(0.1,0.9,18))
 
         for nu in rang:
             for theta in rang:
