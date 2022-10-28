@@ -3,16 +3,65 @@ from adaptive import Adaptive
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import time
+from tqdm import tqdm
+import multiprocessing as mp
 from multiprocessing import Process, Manager
 from sympy import Symbol
 from sympy.solvers import solve
 import base64
 import kaleido
+from functools import partial
 import plotly.io as pio
 pio.kaleido.scope.mathjax = None
+adaptive_folder='C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
 
-### Examples\
+def get_i_opts(Rmu, Rphi, mu, gamma, beta, values):
+
+    kappa=values[0]
+    xi=values[1]
+
+    print(f"Computing ({kappa},{xi})  ... ")
+
+    css= list(np.linspace(0.0001,1,1000))
+    cis= [cs*kappa for cs in css]
+    czs= [cs*xi for cs in css]
+    R0s= [ci*beta/(mu+gamma) for ci in cis]
+
+    values_list=[]
+
+    for j in tqdm(range(len(css))):
+
+        cs=css[j]
+        ci=cis[j]
+        cz=czs[j]
+        R0=R0s[j]
+
+        roots = solve_polynomial(cs,ci,cz,R0,Rphi,Rmu)
+        for root in roots:
+            if abs(root)<=1:
+                values_list.append({"R0":R0,"i_opt":root})
+
+    df_values=pd.DataFrame({
+            'R0': [item['R0'] for item in values_list],
+            'i_opt':[item['i_opt'] for item in values_list]
+    })
+
+    R0_counts=df_values['R0'].value_counts().tolist()
+
+    try:
+        num_max_eq_pts=max(R0_counts)
+    except:
+        num_max_eq_pts=0
+
+    df_final=pd.DataFrame({
+        'C^i/C^s':[kappa],
+        'C^z/C^s':[xi],
+        'num_max_eq_pts':[num_max_eq_pts]
+    })
+    df_final.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap/bifurcation_{kappa}_{xi}",index=False)
+    return df_final
+
+### Examples
 
 def get_coefficients_cubic(cs,ci,cz,R0,Rphi,Rmu):
     
@@ -43,32 +92,6 @@ def solve_polynomial(cs,ci,cz,R0,Rphi,Rmu):
     
     return resp
 
-def get_i_opt(L, chunk, Rmu, Rphi, css, cis, czs, R0s):
-
-    for j in chunk:
-        
-        cs=css[j]
-        ci=cis[j]
-        cz=czs[j]
-        R0=R0s[j]
-
-        roots = solve_polynomial(cs,ci,cz,R0,Rphi,Rmu)
-        
-        for root in roots:
-            if abs(root)<=1:
-                L.append({"R0":R0,"i_opt":root})
-
-def save_equilibria_plot(values_list,title,figname):
-
-    df_values_plot=pd.DataFrame({
-            'R0': [item['R0'] for item in values_list],
-            'i_opt':[item['i_opt'] for item in values_list]
-    })
-    fig = px.scatter(df_values_plot, x="R0", y="i_opt")
-    fig.update_traces(marker=dict(size=7, line=dict(width=0.1, color='Black')))
-    fig.update_layout(paper_bgcolor='#DDE1E2',plot_bgcolor='#FFFFFF',height=500, width=600, title=title)
-    fig.write_image(f'figure_{figname}.png',engine='kaleido')
-
 if __name__ == '__main__':
 
     ### Initial parameters
@@ -80,41 +103,20 @@ if __name__ == '__main__':
     ### R values:
     Rmu= mu/(mu+ gamma)
     Rphi= phi/(mu + gamma)
-    
-    with Manager() as manager:
 
-        rang=list(np.linspace(0.1,0.9,18))
+    ### Compute info for C^i/C^s = kappa and C^z/C^s=xi,
+    ### Where kappa goes from 0.1 to 1.0 and xi goes from 0.1 to 2.0
 
-        for nu in rang:
-            for theta in rang:
+    rang_kappa=[round(t,2) for t in np.linspace(0.1,1,50)]
+    rang_xi=[round(t,2) for t in np.linspace(0.1,2,50)]
 
-                ### Define vector here:
-                css= list(np.linspace(0.0001,0.6,700))
-                cis= [cs*theta for cs in css]
-                czs= [cs*(1-nu) for cs in css]
-                R0s= [ci*beta/(mu+gamma) for ci in cis]
+    iterable_list=[]
+    for kappa in rang_kappa:
+        for xi in rang_xi:
+            iterable_list.append((kappa,xi))
 
-                chunk_nums=7
-                chunk_sizes=int(700/chunk_nums)
-                chunks=[list(range(i,i+chunk_sizes)) for i in range(0,700,chunk_sizes)]
-
-                values_list = manager.list()
-
-                print(f"Start computing points of bifurcation plot for Cs={theta}Ci and Cz=Cs(1-{nu}):")
-                start=time.time()
-                processes = [Process(
-                    target=get_i_opt,
-                    args=(values_list, chunk, Rmu, Rphi, css, cis, czs, R0s)) 
-                    for chunk in chunks]
-
-                for process in processes:
-                    process.start()
-                for process in processes:
-                    process.join()
-                end=time.time()
-                print(f"This took {(end-start)/60} minutes")
-
-                save_equilibria_plot(
-                    values_list,
-                    title=f'Ci = Cs*{theta} and Cz=Cs(1 - {nu})',
-                    figname=f'Ci_equal_{theta}Cs_Cz_equal_Cs(1_minus_{nu})')
+    pool = mp.Pool()
+    func = partial(get_i_opts, Rmu, Rphi, mu, gamma, beta)
+    pool.map(func, iterable_list)
+    pool.close()
+    pool.join()
