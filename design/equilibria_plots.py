@@ -1,96 +1,90 @@
-### Adaptive module
-from adaptive import Adaptive
+"""
+
+Find number of equilibria points found for each combination of
+(C^i/C^s, C^z/C^s) at each R0.
+
+Using Sturms theorem : https://en.wikipedia.org/wiki/Sturm%27s_theorem
+For each ((C^i/C^s, C^z/C^s, R0) combination we form the equilibrium polynomial at the
+
+"""
+
 import numpy as np
 import pandas as pd
-import plotly.express as px
 from tqdm import tqdm
 import multiprocessing as mp
-from multiprocessing import Process, Manager
-from sympy import Symbol
-from sympy.solvers import solve
-import base64
-import kaleido
 from functools import partial
-import plotly.io as pio
-pio.kaleido.scope.mathjax = None
 adaptive_folder='C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
+import time
+import sympy as sp
+import itertools
+import os
 
-def get_i_opts(Rmu, Rphi, mu, gamma, beta, values):
+x = sp.var('x')
+max_contacts_susc = 20
 
-    kappa=values[0]
-    xi=values[1]
+def get_coefficients_cubic(Rphi, Rmu, R0, kappa, xi):
 
-    print(f"Computing ({kappa},{xi})  ... ")
-
-    css= list(np.linspace(0.0001,1,1000))
-    cis= [cs*kappa for cs in css]
-    czs= [cs*xi for cs in css]
-    R0s= [ci*beta/(mu+gamma) for ci in cis]
-
-    values_list=[]
-
-    for j in tqdm(range(len(css))):
-
-        cs=css[j]
-        ci=cis[j]
-        cz=czs[j]
-        R0=R0s[j]
-
-        roots = solve_polynomial(cs,ci,cz,R0,Rphi,Rmu)
-        for root in roots:
-            if abs(root)<=1:
-                values_list.append({"R0":R0,"i_opt":root})
-
-    df_values=pd.DataFrame({
-            'R0': [item['R0'] for item in values_list],
-            'i_opt':[item['i_opt'] for item in values_list]
-    })
-
-    R0_counts=df_values['R0'].value_counts().tolist()
-
-    try:
-        num_max_eq_pts=max(R0_counts)
-    except:
-        num_max_eq_pts=0
-
-    df_final=pd.DataFrame({
-        'C^i/C^s':[kappa],
-        'C^z/C^s':[xi],
-        'num_max_eq_pts':[num_max_eq_pts]
-    })
-    df_final.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap/bifurcation_{kappa}_{xi}",index=False)
-    return df_final
-
-### Examples
-
-def get_coefficients_cubic(cs,ci,cz,R0,Rphi,Rmu):
-    
     ### Returns the coefficients x3,x2,x1,x0 of the cubic polynomial in the notes.
 
-    x_3=(Rphi**2)*(R0) + Rmu*(Rphi**2)*( (ci/cs) -1)
+    """
+    kappa := C^i/C^s
+    xi := C^z/C^s
+    """
 
-    x_2=Rphi*(R0*(1-Rphi) + Rmu*(R0+Rphi))
-    x_2= x_2 + Rphi*( Rmu*(1-Rmu)*( (cz/cs) - 1) + Rmu*(1+Rmu)*( (ci/cs) - 1) ) 
+    x_3 = (Rphi**2)*(R0) + Rmu*(Rphi**2)*(kappa -1)
+    
+    x_2 = Rphi*(R0*(1 - Rphi) + Rmu*(R0 + Rphi))
+    x_2 = x_2 + Rphi*( Rmu*(1 - Rmu)*( xi - 1) + Rmu*(1 + Rmu)*( kappa - 1) ) 
 
-    x_1= Rmu*(R0*(1-Rphi)  + Rphi*(1-R0)  + Rmu*Rphi )
-    x_1= x_1+ Rmu*( (1-Rmu)*( (cz/cs) -1 ) + Rmu*( (ci/cs) -1  )   )
+    x_1 = Rmu*(R0*(1 - Rphi)  + Rphi*(1 - R0)  + Rmu*Rphi )
+    x_1 = x_1+ Rmu*( (1-Rmu)*( xi - 1 ) + Rmu*( kappa - 1 ) )
 
-    x_0=(Rmu**2)*(1-R0)
+    x_0 = (Rmu**2)*(1-R0)
 
     return [x_0,x_1,x_2,x_3]
 
-def evaluate_cubic(i,cs,ci,cz,R0,Rphi,Rmu):
-    [x_0,x_1,x_2,x_3] = get_coefficients_cubic(cs,ci,cz,R0,Rphi,Rmu)
-    return x_3*(i**3) + x_2*(i**2) + x_1*i + x_0
+def nmbr_rts_interval(Rphi, Rmu, beta, mu, gamma, val_tuple):
 
-def solve_polynomial(cs,ci,cz,R0,Rphi,Rmu):
-    
-    x = Symbol('x')
-    resp = solve(evaluate_cubic(x,cs,ci,cz,R0,Rphi,Rmu), x)
-    resp = [(float(expr.as_real_imag()[0]), float(expr.as_real_imag()[1]) ) for expr in resp]
-    resp = [expr[0] for expr in resp if expr[0]>0 and abs(expr[1])<1e-15]
-    
-    return resp
+    kappa = val_tuple[0]
+    xi = val_tuple[1]
+
+    if not f"res_{kappa}_{xi}.csv" in os.listdir(f"{adaptive_folder}/data/bifurcation_heatmap"):
+
+        print(f"Processing tuple {(kappa,xi)}.")
+        start_tuple = time.time()
+
+        css = list(np.linspace(0.01,max_contacts_susc,1000)) #C^s
+        cis = [cs*kappa for cs in css] #C^i = kappa C^s
+        R0s = [ci*beta/(mu + gamma) for ci in cis] #R0
+        vals = []
+
+        for R0 in tqdm(R0s):
+
+            # Compute number of roots using Sturm's Theorem
+            coefficients = get_coefficients_cubic(Rphi, Rmu, R0, kappa, xi)
+            pol = sum([coefficients[i]*x**i for i in range(len(coefficients))])
+            sturm_seq = sp.sturm(pol) # sturm sequence
+            
+            values_at_start = [float(sp.Poly(pol_sturm,x).eval(0)) for pol_sturm in sturm_seq]
+            values_at_end = [float(sp.Poly(pol_sturm,x).eval(1)) for pol_sturm in sturm_seq]
+            
+            count_start = len(list(itertools.groupby(values_at_start, lambda values_at_start: values_at_start > 0)))
+            count_end = len(list(itertools.groupby(values_at_end, lambda values_at_end: values_at_end > 0)))
+            
+            ans = count_start - count_end
+            vals.append(ans)
+
+        answer = max(vals)
+        
+        tuple_data = pd.DataFrame({
+            'kappa':[kappa],
+            'xi':[xi],
+            'numbr_roots':[answer]
+        })
+        tuple_data.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap/res_{kappa}_{xi}.csv")
+
+        end_tuple = time.time()
+        print(f"Tuple {(kappa,xi)} DONE. This took {end_tuple - start_tuple} seconds. The answer: {answer}.")
 
 if __name__ == '__main__':
 
@@ -104,19 +98,31 @@ if __name__ == '__main__':
     Rmu= mu/(mu+ gamma)
     Rphi= phi/(mu + gamma)
 
-    ### Compute info for C^i/C^s = kappa and C^z/C^s=xi,
-    ### Where kappa goes from 0.1 to 1.0 and xi goes from 0.1 to 2.0
+    # values 
+    kappas = [round(t,2) for t in np.linspace(0.1, 1, 30)]
+    xis = [round(t,2) for t in np.linspace(0.1, 3, 30)]
+    param_lists = [kappas, xis]
+    param_grid = list(itertools.product(*param_lists))
 
-    rang_kappa=[round(t,2) for t in np.linspace(0.1,1,50)]
-    rang_xi=[round(t,2) for t in np.linspace(0.1,2,50)]
-
-    iterable_list=[]
-    for kappa in rang_kappa:
-        for xi in rang_xi:
-            iterable_list.append((kappa,xi))
+    print(f"Number of tuples to process: {len(param_grid)}")
+    print(f"Sequentially this will take approx {len(param_grid)/(60*60)} hours.")
+    print("We start processing them: ==========================================")
 
     pool = mp.Pool()
-    func = partial(get_i_opts, Rmu, Rphi, mu, gamma, beta)
-    pool.map(func, iterable_list)
+    func = partial(nmbr_rts_interval, Rphi, Rmu, beta, mu, gamma)
+    pool.map(func, param_grid)
     pool.close()
     pool.join()
+
+    # Join all results:
+
+    final_data = pd.DataFrame({})
+    for file in os.listdir(f'{adaptive_folder}/data/bifurcation_heatmap'):
+        if file.endswith(".csv") and file.startswith("res"):
+            data_tuple = pd.read_csv(f'{adaptive_folder}/data/bifurcation_heatmap/{file}')
+            final_data = final_data.append(data_tuple, ignore_index = True)
+            os.remove(f'{adaptive_folder}/data/bifurcation_heatmap/{file}') # Delete file
+
+    final_data.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap/simulation_11_Nov_02.csv")
+    print(f"We are done. Final data shape: {final_data.shape} ==========================")
+    

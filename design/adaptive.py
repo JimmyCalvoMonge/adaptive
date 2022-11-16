@@ -1,11 +1,8 @@
 from scipy.integrate import odeint
-from scipy.optimize import fmin
 import numpy as np
 import time
 import matplotlib.pyplot as plt
 import math
-from scipy.interpolate import interp1d ### Might be useful
-from scipy.optimize import fsolve
 from sympy.solvers import solve
 from sympy import Symbol
 import pandas as pd
