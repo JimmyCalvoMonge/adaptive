@@ -134,7 +134,7 @@ class Adaptive():
 
         def vs1(C_st, vti):
             expr0 = 0.5*self.beta*self.bi*I*math.exp(-1*(0.5*self.beta*self.bi*I*C_st)/phi_t)/phi_t
-            expr1 = (self.gamma1*(self.bs*C_st - C_st*2)(self.gamma1 - 1)(self.bs - 2*C_st)) / expr0
+            expr1 = (self.gamma1*(self.bs*C_st - C_st*2)*(self.gamma1 - 1)(self.bs - 2*C_st)) / expr0
             expr2 = (1 - P_it(C_st))*expr1 + P_it(C_st)*vti
             return (self.bs*C_st - C_st*2)*self.gamma1 - self.as1 - self.delta*expr2
 
