@@ -55,6 +55,9 @@ class MDP():
                 policies_step[h] = self.A[np.argmax(values)]
             
             x = np.array(vals)
+            if verbose:
+                print(f"Value vector at step {t}:")
+                print(x)
             policies.append(policies_step)
 
         self.values = x

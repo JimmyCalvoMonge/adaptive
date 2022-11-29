@@ -97,7 +97,7 @@ class Adaptive():
 
         return s, i, z
 
-    def find_optimal_Cs_at_time(self, t0, xt0, ci, cz):
+    def find_optimal_Cs_at_time(self, xt0, ci, cz):
         
         ### Old Version ###
         """
@@ -113,7 +113,7 @@ class Adaptive():
         I = xt0[1]
         Z = xt0[2]
         
-        phi_t = S*0.5*self.bs + I*0.5*self.bi + Z*0.5*self.bz
+        phi_t = S*0.5*self.bs + I*ci + Z*cz
 
         Pz = 1 - math.exp(-1*self.gamma)  ### Probability of recovery.
         xi = ( (1 - self.delta**(self.tau + 1) )/(1 - self.delta) ) - ( (1 - ( self.delta*(1 - Pz))**(self.tau + 1)  )/( 1 - self.delta*(1-Pz) ) ) ### Xi function in notes
@@ -134,17 +134,14 @@ class Adaptive():
 
         def vs1(C_st, vti):
             expr0 = 0.5*self.beta*self.bi*I*math.exp(-1*(0.5*self.beta*self.bi*I*C_st)/phi_t)/phi_t
-            expr1 = (self.gamma1*(self.bs*C_st - C_st*2)*(self.gamma1 - 1)*(self.bs - 2*C_st)) / expr0
+            expr1 = ((self.gamma1*(self.bs*C_st - C_st*2)**(self.gamma1 - 1))*(self.bs - 2*C_st)) / expr0
             expr2 = (1 - P_it(C_st))*expr1 + P_it(C_st)*vti
             return (self.bs*C_st - C_st*2)*self.gamma1 - self.as1 - self.delta*expr2
 
-        #print(f"for t={t} we compute C^s_opt")
-        #start=time.time()
-        C_st_array = np.linspace(0, 0.5*self.bs, 1000)
+        C_st_array = np.linspace(0, 0.5*self.bs, 100)
         C_st_args = [0]*(self.tau + 1)
-        Vs1s = [0]*(self.tau + 1) ### length is tau+1 [goes from 0 to tau]
+        Vs1s = [0]*(self.tau + 1) ### length is tau + 1 [goes from 0 to tau]
         Vi1s = [vti]*(self.tau - 1) + [(0.25* (self.bi)**2 )**self.gamma1 - self.ai] + [0]  ###length is tau+1
-
         ### t+tau
         C_st_tau_step = [vs1(C_st, vti = Vi1s[self.tau] ) for C_st in C_st_array]
         Vs1s[self.tau] = max(C_st_tau_step) ### This is V_{t_0+tau + 1}
@@ -154,9 +151,9 @@ class Adaptive():
         for j in range(1, self.tau + 1):
 
             ### Get V_{t_0 + tau - j + 1}(i)
-            v_i_tau_j_1=Vi1s[self.tau - j + 1]
+            v_i_tau_j_1 = Vi1s[self.tau - j + 1]
             ### Get V_{t_0 + tau - j + 1}(s)
-            v_s_tau_j_1=Vs1s[self.tau - j + 1]
+            v_s_tau_j_1 = Vs1s[self.tau - j + 1]
 
             ### Use formula (6) of article to find V_{t_0+ tau -j}
             val_func_values = [ (self.bs*C_st - C_st**2)**self.gamma1 - self.as1 + 
@@ -165,8 +162,18 @@ class Adaptive():
             Vs1s[self.tau - j] = max(val_func_values)
             C_st_args[self.tau - j] = C_st_array[np.argmax(val_func_values)]
 
-        Cs_opt = C_st_args[0]
+        self.logger.info(f"Css obtained in backwards induction: (with {self.tau} steps):")
+        self.logger.info(C_st_args)
+        self.logger.info("Value functions")
+        self.logger.info(f"V_{{t+1}}(s) for t = 0,1,...,{self.tau}: ")
+        self.logger.info(Vs1s)
+        self.logger.info(f"V_{{t+1}}(i) for t = 0,1,...,{self.tau}: ")
+        self.logger.info(Vi1s)
+        self.logger.info(len(Vs1s))
+        self.logger.info(len(Vi1s))
+        self.logger.info("====")
 
+        Cs_opt = C_st_args[0]
         return Cs_opt
 
     def patch_uni_solutions(self):
@@ -177,7 +184,9 @@ class Adaptive():
         cz = 0.5*self.bz
         ci = 0.5*self.bi
 
-        first_cs = self.find_optimal_Cs_at_time(0, self.x00, cz, ci)
+        first_cs = self.find_optimal_Cs_at_time(self.x00, cz, ci)
+        self.logger.info("First cs found:")
+        self.logger.info(first_cs)
         s_start, i_start, z_start = self.solve_odes_system_unistep(self.x00, 0, first_cs, ci, cz)
 
         S = s_start
@@ -191,7 +200,7 @@ class Adaptive():
 
             # State at end of last interval
             xt_start = [S[-1], I[-1], Z[-1]]
-            cs_opt_interval = self.find_optimal_Cs_at_time(t, xt_start, cz, ci)
+            cs_opt_interval = self.find_optimal_Cs_at_time(xt_start, cz, ci)
             
             s_interval, i_interval, z_interval = self.solve_odes_system_unistep(xt_start, t, cs_opt_interval, ci, cz)
             S = np.concatenate((S, s_interval), axis=0)

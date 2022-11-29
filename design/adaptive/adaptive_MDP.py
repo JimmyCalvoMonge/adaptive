@@ -139,8 +139,8 @@ class Adaptive():
         rewards = [reward_vector]*horizon
 
         MDP_adaptive = MDP.MDP(states, actions, rewards, trans_probs, horizon, delta)
-        MDP_adaptive.fit_optimal_values(verbose = False)
-        cs_selected = MDP_adaptive.actions[0][0]
+        MDP_adaptive.fit_optimal_values(verbose = True)
+        cs_selected = MDP_adaptive.policies[0][0]
 
         # This isn't working :/
 
