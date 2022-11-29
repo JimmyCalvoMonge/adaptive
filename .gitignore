@@ -45,21 +45,10 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *,cover
-
-# Translations
 *.mo
 *.pot
-
-# Django stuff:
 *.log
-
-# Sphinx documentation
 docs/_build/
-
-# PyBuilder
 target/
-
 .ipynb_checkpoints
-
 data/bifurcation_data/*.csv
-data/bifurcation_heatmap/*.csv
