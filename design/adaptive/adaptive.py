@@ -133,17 +133,17 @@ class Adaptive():
         """
 
         def vs1(C_st, vti):
-            expr0 = 0.5*self.beta*self.bi*I*math.exp(-1*(0.5*self.beta*self.bi*I*C_st)/phi_t)
-            expr1 = (self.gamma1*(self.bs*C_st - C_st**2)**(self.gamma1 - 1) + self.bs -2*C_st) / expr0
-            expr2 = (1 - P_it(C_st))*expr1 + vti
-            return (self.bs*C_st - C_st**2)**self.gamma1 - self.as1 - self.delta*expr2
+            expr0 = 0.5*self.beta*self.bi*I*math.exp(-1*(0.5*self.beta*self.bi*I*C_st)/phi_t)/phi_t
+            expr1 = (self.gamma1*(self.bs*C_st - C_st*2)(self.gamma1 - 1)(self.bs - 2*C_st)) / expr0
+            expr2 = (1 - P_it(C_st))*expr1 + P_it(C_st)*vti
+            return (self.bs*C_st - C_st*2)*self.gamma1 - self.as1 - self.delta*expr2
 
         #print(f"for t={t} we compute C^s_opt")
         #start=time.time()
         C_st_array = np.linspace(0, 0.5*self.bs, 1000)
         C_st_args = [0]*(self.tau + 1)
-        Vs1s=[0]*(self.tau + 1) ### length is tau+1 [goes from 0 to tau]
-        Vi1s=[vti]*(self.tau - 1) + [(0.25* (self.bi)**2 )**self.gamma1 - self.ai] + [0]  ###length is tau+1
+        Vs1s = [0]*(self.tau + 1) ### length is tau+1 [goes from 0 to tau]
+        Vi1s = [vti]*(self.tau - 1) + [(0.25* (self.bi)**2 )**self.gamma1 - self.ai] + [0]  ###length is tau+1
 
         ### t+tau
         C_st_tau_step = [vs1(C_st, vti = Vi1s[self.tau] ) for C_st in C_st_array]
@@ -165,7 +165,7 @@ class Adaptive():
             Vs1s[self.tau - j] = max(val_func_values)
             C_st_args[self.tau - j] = C_st_array[np.argmax(val_func_values)]
 
-        Cs_opt=C_st_args[0]
+        Cs_opt = C_st_args[0]
 
         return Cs_opt
 
