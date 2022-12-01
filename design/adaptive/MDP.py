@@ -1,8 +1,33 @@
 import numpy as np
 
 class MDP():
+    
+    """
+    Implements a simple Markov Decision Process.
+    With discrete actions and states spaces.
+    Finding optimal policies for the process.
 
-    def __init__(self, S: list, A: list, rewards: list, trans_probs: list, horizon: int, delta: float):
+    References:
+    - https://www.math.leidenuniv.nl/~kallenberg/Lecture-notes-MDP.pdf
+    Markov Decision Processes
+    Lodewijk Kallenberg
+    University of Leiden
+
+    - http://stanford.edu/~ashlearn/RLForFinanceBook/book.pdf
+    Foundations of Reinforcement Learning with Applications in Finance
+    Ashwin Rao, Tikhon Jelvis
+    Stanford University
+
+    """
+
+    def __init__(self,
+    S: list,
+    A: list,
+    rewards: list,
+    trans_probs: list,
+    horizon: int,
+    delta: float,
+    logger):
 
         self.A = A # Actions space
         self.S = S # States space
@@ -11,6 +36,7 @@ class MDP():
         self.trans_probs = trans_probs # Transition probabilities
         self.horizon = horizon # Planning horizon
         self.delta = delta # Discount factor
+        self.logger = logger
 
         """
         A a list of actions.
@@ -30,11 +56,7 @@ class MDP():
         else:
             x = np.array([0]*self.N)
 
-        verbose = False
-        if 'verbose' in kwargs:
-            if isinstance(kwargs.get('verbose'), bool) and kwargs.get('verbose'):
-                verbose = True
-
+        x_history = [[x[h]] for h in self.S]
         # Backwards induction algorithm:
 
         for t in range(self.horizon):
@@ -42,23 +64,37 @@ class MDP():
             reward_step = self.rewards[t] #This is the vector with entries u_h^t(a) for h in S
             probs_step = self.trans_probs[t] # This is matrix with entries P_{hk}^t(a) for h,k in S
 
+            all_prob_matrices = []
+            for a in self.A:
+                probs_matrix = probs_step[0,1](a)
+                all_prob_matrices.append(probs_matrix)
+
             policies_step = {}
             vals = []
             
-            for h in self.S:
-
+            for h in range(self.N):
                 values = [reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
                 max_val = np.max(np.array(values))
-                if verbose:
-                    print(f"max val at step {t}: {max_val} and state {h}")
                 vals.append(max_val)
                 policies_step[h] = self.A[np.argmax(values)]
             
             x = np.array(vals)
-            if verbose:
-                print(f"Value vector at step {t}:")
-                print(x)
+            for h in self.S:
+                x_history[h].insert(0,x[h])
+
             policies.append(policies_step)
+
+        #Css
+        self.logger.info(f"Css obtained in backwards induction: (with {self.horizon} steps)")
+        css = []
+        for pol in policies:
+            css.append(pol[0])
+        self.logger.info(css)
+
+        #if verbose:
+        for h in self.S:
+            self.logger.info(f"Values V_{{{h}}}(t) for t=0,1,...,{self.horizon}+1:")
+            self.logger.info(x_history[h])
 
         self.values = x
         self.policies = policies

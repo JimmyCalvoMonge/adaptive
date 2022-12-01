@@ -2,6 +2,9 @@ from scipy.integrate import odeint
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+from datetime import datetime
+import os 
+import logging
 
 # Import Markov Decision Module
 import MDP
@@ -9,6 +12,17 @@ import MDP
 class Adaptive():
     
     def __init__(self, mu, gamma, beta, phi, bs, bi, bz, as1, ai, az, gamma1, tau, delta, t_max, steps, x00):
+
+        ### Logs:
+        # A route in my system for logs:
+        logger_route = f"C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive/design/logs"
+        right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+        if not os.path.exists(logger_route):
+            os.makedirs(logger_route, exist_ok=True)
+        logging.basicConfig(filename=f'{logger_route}/logger_{right_now}_MDP.log', filemode='w', format='%(asctime)s %(message)s',)
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        self.logger = logger
 
         ### Initial parameters
         self.mu = mu
@@ -78,7 +92,7 @@ class Adaptive():
 
         return s, i, z
 
-    def find_optimal_Cs_at_time(self, t0, xt0, cz, ci):
+    def find_optimal_Cs_at_time(self, xt0, ci, cz):
     
         """
         Find the value of C^s at time t.
@@ -90,9 +104,15 @@ class Adaptive():
         """
 
         states = [0, 1, 2]
-        actions = np.linspace(0, 5, 50)
+        actions = np.linspace(0, 0.5*self.bs, 100)
         horizon = self.tau
         delta = self.delta
+
+        S = xt0[0]
+        I = xt0[1]
+        Z = xt0[2]
+        
+        phi_t = S*0.5*self.bs + I*ci + Z*cz
 
         # Immediate rewards:
         def u_s(a):
@@ -104,9 +124,8 @@ class Adaptive():
 
         # Transition Probabilities:
         def P_si(a):
-            phi_t = xt0[0]*a + xt0[1]*ci + xt0[2]*cz
-            probs = 1 - math.exp(-1*(self.beta*xt0[1]*ci*a)/phi_t)
-            return probs
+            P_it = 1 - math.exp(-1*(0.5*self.beta*self.bi*I*a)/phi_t)
+            return P_it
 
         def P_ss(a):
             return 1 - P_si(a)
@@ -120,7 +139,7 @@ class Adaptive():
         def P_iz(a):
             return 1 - math.exp(-1*self.gamma)
 
-        # No reinfection:
+        # No reinfection: (Important) #
         def P_zs(a):
             return 0
         def P_zi(a):
@@ -138,11 +157,22 @@ class Adaptive():
         trans_probs = [trans_prob_mat]*horizon
         rewards = [reward_vector]*horizon
 
-        MDP_adaptive = MDP.MDP(states, actions, rewards, trans_probs, horizon, delta)
-        MDP_adaptive.fit_optimal_values(verbose = True)
-        cs_selected = MDP_adaptive.policies[0][0]
+        # Initialization Point:
+        # (0,0,0) doesn't work as an initialization point.
+        def vs1(C_st, vti):
+            expr0 = 0.5*self.beta*self.bi*I*math.exp(-1*(0.5*self.beta*self.bi*I*C_st)/phi_t)/phi_t
+            expr1 = ((self.gamma1*(self.bs*C_st - C_st*2)**(self.gamma1 - 1))*(self.bs - 2*C_st)) / expr0
+            expr2 = (1 - P_si(C_st))*expr1 + P_si(C_st)*vti
+            return (self.bs*C_st - C_st*2)*self.gamma1 - self.as1 - self.delta*expr2
 
-        # This isn't working :/
+        C_st_array = np.linspace(0, 0.5*self.bs, 100)
+        C_st_tau_step = [vs1(C_st, vti = 0) for C_st in C_st_array]
+        Vs1s = max(C_st_tau_step)
+
+        # Use a Markov Decision Process with finite horizon to obtain the optimal policy and decision.
+        MDP_adaptive = MDP.MDP(states, actions, rewards, trans_probs, horizon, delta, logger = self.logger)
+        MDP_adaptive.fit_optimal_values(verbose = True, init_point = [Vs1s,0,0])
+        cs_selected = MDP_adaptive.policies[0][0]
 
         return cs_selected
 
@@ -154,7 +184,7 @@ class Adaptive():
         cz = 0.5*self.bz
         ci = 0.5*self.bi
 
-        first_cs = self.find_optimal_Cs_at_time(0, self.x00, cz, ci)
+        first_cs = self.find_optimal_Cs_at_time(self.x00, ci, cz)
         s_start, i_start, z_start = self.solve_odes_system_unistep(self.x00, 0, first_cs, ci, cz)
 
         S = s_start
@@ -166,7 +196,7 @@ class Adaptive():
 
             # State at end of last interval
             xt_start = [S[-1], I[-1], Z[-1]]
-            cs_opt_interval = self.find_optimal_Cs_at_time(t, xt_start, cz, ci)
+            cs_opt_interval = self.find_optimal_Cs_at_time(xt_start, ci, cz)
             s_interval, i_interval, z_interval = self.solve_odes_system_unistep(xt_start, t, cs_opt_interval, ci, cz)
             S = np.concatenate((S, s_interval), axis=0)
             I = np.concatenate((I, i_interval), axis=0)

@@ -11,7 +11,7 @@ class Adaptive():
     def __init__(self, mu, gamma, beta, phi, bs, bi, bz, as1, ai, az, gamma1, tau, delta, t_max, steps, x00):
 
         ### Logs:
-
+        # A route in my system for logs:
         logger_route=f"C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive/design/logs"
         right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
         if not os.path.exists(logger_route):
@@ -140,11 +140,11 @@ class Adaptive():
 
         C_st_array = np.linspace(0, 0.5*self.bs, 100)
         C_st_args = [0]*(self.tau + 1)
-        Vs1s = [0]*(self.tau + 1) ### length is tau + 1 [goes from 0 to tau]
-        Vi1s = [vti]*(self.tau - 1) + [(0.25* (self.bi)**2 )**self.gamma1 - self.ai] + [0]  ###length is tau+1
+        Vs1s = [0]*(self.tau + 2) ### length is tau + 2 [goes from 0 to tau + 1]
+        Vi1s = [vti]*(self.tau) + [(0.25* (self.bi)**2 )**self.gamma1 - self.ai] + [0]  ### length is tau + 2
         ### t+tau
-        C_st_tau_step = [vs1(C_st, vti = Vi1s[self.tau] ) for C_st in C_st_array]
-        Vs1s[self.tau] = max(C_st_tau_step) ### This is V_{t_0+tau + 1}
+        C_st_tau_step = [vs1(C_st, vti = Vi1s[self.tau + 1] ) for C_st in C_st_array]
+        Vs1s[self.tau] = max(C_st_tau_step) ### This is V_{t_0 + tau + 1}
         C_st_args[self.tau] = C_st_array[np.argmax(C_st_tau_step)]
 
         ### Go over all the other steps (backwards):
@@ -165,9 +165,9 @@ class Adaptive():
         self.logger.info(f"Css obtained in backwards induction: (with {self.tau} steps):")
         self.logger.info(C_st_args)
         self.logger.info("Value functions")
-        self.logger.info(f"V_{{t+1}}(s) for t = 0,1,...,{self.tau}: ")
+        self.logger.info(f"V_{{t}}(s) for t = 0,1,...,{self.tau}+1: ")
         self.logger.info(Vs1s)
-        self.logger.info(f"V_{{t+1}}(i) for t = 0,1,...,{self.tau}: ")
+        self.logger.info(f"V_{{t}}(i) for t = 0,1,...,{self.tau}+1: ")
         self.logger.info(Vi1s)
         self.logger.info(len(Vs1s))
         self.logger.info(len(Vi1s))
@@ -184,7 +184,7 @@ class Adaptive():
         cz = 0.5*self.bz
         ci = 0.5*self.bi
 
-        first_cs = self.find_optimal_Cs_at_time(self.x00, cz, ci)
+        first_cs = self.find_optimal_Cs_at_time(self.x00, ci, cz)
         self.logger.info("First cs found:")
         self.logger.info(first_cs)
         s_start, i_start, z_start = self.solve_odes_system_unistep(self.x00, 0, first_cs, ci, cz)
@@ -200,7 +200,7 @@ class Adaptive():
 
             # State at end of last interval
             xt_start = [S[-1], I[-1], Z[-1]]
-            cs_opt_interval = self.find_optimal_Cs_at_time(xt_start, cz, ci)
+            cs_opt_interval = self.find_optimal_Cs_at_time(xt_start, ci, cz)
             
             s_interval, i_interval, z_interval = self.solve_odes_system_unistep(xt_start, t, cs_opt_interval, ci, cz)
             S = np.concatenate((S, s_interval), axis=0)
