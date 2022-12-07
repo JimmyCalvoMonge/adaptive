@@ -97,7 +97,6 @@ class Adaptive():
         """
         Find the value of C^s at time t.
         x_t0 = [s(t), i(t), z(t)]
-
         Step 1. For each option for C^s, solve the system in [t,t+tau].
         Step 2. Use the system values to solve the dynamic programming problem for V_t(S).
         Step 3. Find C^s that maximizes V_t(S).
