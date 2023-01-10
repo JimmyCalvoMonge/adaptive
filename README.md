@@ -7,4 +7,6 @@ We study the adaptive human behavior model implemented in the article [Adaptive 
 - `references/` contains main related references.
 - `design/` contains a jupyter notebook with some implementation designs and drafts for both classical and adaptive.
 
+- Non adaptive cases studied for relapse case as well.
+
 JCM
