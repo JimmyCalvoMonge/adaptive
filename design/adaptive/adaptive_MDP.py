@@ -49,6 +49,7 @@ class Adaptive():
         self.t_max = t_max
         self.steps = steps # How many observations between t and t+1
         self.x00 = x00
+        self.N = sum(x00)
 
     def state_odes_system(self, x, t, cs, ci, cz):
 
@@ -57,12 +58,12 @@ class Adaptive():
         z = x[2]
 
         # C function 
-        C = cs*ci/(s*cs + i*ci + z*cz)
+        C = cs*ci*self.N/(s*cs + i*ci + z*cz)
 
         # System 
-        dsdt = -C*self.beta*s*i + self.mu - self.mu*s
-        didt = C*self.beta*s*i + self.phi*z*i - (self.gamma + self.mu)*i  
-        dzdt = self.gamma*i - self.phi*z*i - self.mu*z
+        dsdt = -C*self.beta*s*(i/self.N) + self.mu*self.N - self.mu*s
+        didt = C*self.beta*s*(i/self.N) + self.phi*z*(i/self.N) - (self.gamma + self.mu)*i  
+        dzdt = self.gamma*i - self.phi*z*(i/self.N) - self.mu*z
 
         return [dsdt, didt, dzdt]
 

@@ -27,7 +27,7 @@ class MDP():
     trans_probs: list,
     horizon: int,
     delta: float,
-    logger):
+    **kwargs):
 
         self.A = A # Actions space
         self.S = S # States space
@@ -36,7 +36,8 @@ class MDP():
         self.trans_probs = trans_probs # Transition probabilities
         self.horizon = horizon # Planning horizon
         self.delta = delta # Discount factor
-        self.logger = logger
+        if 'logger' in kwargs:
+            self.logger = logger
 
         """
         A a list of actions.
@@ -74,6 +75,7 @@ class MDP():
             
             for h in range(self.N):
                 values = [reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
+                print(values)
                 max_val = np.max(np.array(values))
                 vals.append(max_val)
                 policies_step[h] = self.A[np.argmax(values)]
@@ -85,16 +87,16 @@ class MDP():
             policies.append(policies_step)
 
         #Css
-        self.logger.info(f"Css obtained in backwards induction: (with {self.horizon} steps)")
+        # self.logger.info(f"Css obtained in backwards induction: (with {self.horizon} steps)")
         css = []
         for pol in policies:
             css.append(pol[0])
-        self.logger.info(css)
+        # self.logger.info(css)
 
-        #if verbose:
+        # if verbose:
         for h in self.S:
-            self.logger.info(f"Values V_{{{h}}}(t) for t=0,1,...,{self.horizon}+1:")
-            self.logger.info(x_history[h])
+            print(f"Values V_{{{h}}}(t) for t=0,1,...,{self.horizon}+1:")
+            print(x_history[h])
 
         self.values = x
         self.policies = policies

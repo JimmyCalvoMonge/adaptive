@@ -52,3 +52,5 @@ docs/_build/
 target/
 .ipynb_checkpoints
 data/bifurcation_data/*.csv
+
+images/simulations/*

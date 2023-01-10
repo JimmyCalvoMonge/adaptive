@@ -6,6 +6,7 @@ from datetime import datetime
 import os 
 import logging
 
+# DEPRECATED #
 class Adaptive():
     
     def __init__(self, mu, gamma, beta, phi, bs, bi, bz, as1, ai, az, gamma1, tau, delta, t_max, steps, x00):
