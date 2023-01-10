@@ -5,6 +5,6 @@ We study the adaptive human behavior model implemented in the article [Adaptive 
 
 - `notes/` contains some annotations on the article.
 - `references/` contains main related references.
-- `design/` contains a jupyter notebook with some implementation designs and drafts for both classical and adaptive. 
+- `design/` contains a jupyter notebook with some implementation designs and drafts for both classical and adaptive.
 
 JCM
