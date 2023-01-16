@@ -37,7 +37,7 @@ class MDP():
         self.horizon = horizon # Planning horizon
         self.delta = delta # Discount factor
         if 'logger' in kwargs:
-            self.logger = logger
+            self.logger = kwargs.get('logger')
 
         """
         A a list of actions.
@@ -75,7 +75,7 @@ class MDP():
             
             for h in range(self.N):
                 values = [reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
-                print(values)
+                #print(values)
                 max_val = np.max(np.array(values))
                 vals.append(max_val)
                 policies_step[h] = self.A[np.argmax(values)]
@@ -94,9 +94,9 @@ class MDP():
         # self.logger.info(css)
 
         # if verbose:
-        for h in self.S:
-            print(f"Values V_{{{h}}}(t) for t=0,1,...,{self.horizon}+1:")
-            print(x_history[h])
+        # for h in self.S:
+            #print(f"Values V_{{{h}}}(t) for t=0,1,...,{self.horizon}+1:")
+            #print(x_history[h])
 
         self.values = x
         self.policies = policies
