@@ -74,6 +74,16 @@ class MDP():
             vals = []
             
             for h in range(self.N):
+                rwrds = [reward_step[h](a) for a in self.A]
+                val_funcs = [self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
+
+                self.logger.info(f"""
+                Rewards: 
+                {rwrds}
+                Delta*sums:
+                {val_funcs}
+                
+                """)
                 values = [reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
                 #print(values)
                 max_val = np.max(np.array(values))
@@ -99,5 +109,6 @@ class MDP():
             #print(x_history[h])
 
         self.values = x
+        self.values_history = x_history
         self.policies = policies
         self.first_policies = policies[0]
