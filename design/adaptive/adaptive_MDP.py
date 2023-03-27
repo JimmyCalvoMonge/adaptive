@@ -287,7 +287,8 @@ class Adaptive_New():
             if not os.path.exists(logger_route):
                 os.makedirs(logger_route, exist_ok=True)
 
-            logging.basicConfig(filename=f'{logger_route}/logger_{right_now}_MDP.log', filemode='w', format='%(asctime)s %(message)s',)
+            logging.basicConfig(filename=f'{logger_route}/logger_{right_now}_MDP.log',
+                                filemode='w', format='%(asctime)s %(message)s',)
             logger = logging.getLogger()
             logger.setLevel(logging.INFO)
             self.logger = logger
@@ -331,6 +332,7 @@ class Adaptive_New():
         self.inf_prob_mult = kwargs.get('inf_prob_mult', 0.7)
         self.init_point = kwargs.get('init_point', None)
         self.verbose = kwargs.get('verbose', False)
+        self.tqdm = kwargs.get('tqdm', True)
 
 
     def state_odes_system(self, x, t, cs, ci, cz):
@@ -392,48 +394,57 @@ class Adaptive_New():
         actions = self.actions
         horizon = self.tau
         delta = self.delta
-        
-        # Transition Probabilities:
-        def P_si(a):
-            phi_t = xt0[0]*cs_star + xt0[1]*ci_star + xt0[2]*cz_star
-            P_it = 1 - math.exp(-1*(self.beta*ci_star*xt0[1]*a)/phi_t)
-            return P_it
 
-        def P_ss(a):
-            return 1 - P_si(a)
+        s_proj, i_proj, z_proj = self.solve_odes_system_projection(x0=xt0, t0=0,
+                                                                cs=cs_star,
+                                                                ci=ci_star,
+                                                                cz=cz_star)
         
-        def P_sz(a):
-            return 0
+        trans_probs = []
+        for tt in range(horizon):
 
-        def P_is(a):
-            return 0
-        
-        def P_ii(a):
-            return math.exp(-1*self.gamma)
-        
-        def P_iz(a):
-            return 1 - math.exp(-1*self.gamma)
+            # Transition Probabilities (at time t):
+            # Using the system projection
 
-        # No reinfection: (Important) #
-        def P_zs(a):
-            return 0
-
-        def P_zi(a):
-            if self.phi == 0:
+            def P_si(a):
+                phi_t = s_proj[tt*self.steps]*cs_star + i_proj[tt*self.steps]*ci_star + z_proj[tt*self.steps]*cz_star
+                P_it = 1 - math.exp(-1*(self.beta*ci_star*i_proj[tt*self.steps]*a)/phi_t)
+                return P_it
+            
+            def P_ss(a):
+                return 1 - P_si(a)
+            
+            def P_sz(a):
                 return 0
-            return P_si(a)*0.97
 
-        def P_zz(a):
-            return 1 - P_zi(a)
+            def P_is(a):
+                return 0
+            
+            def P_ii(a):
+                return math.exp(-1*self.gamma)
+            
+            def P_iz(a):
+                return 1 - math.exp(-1*self.gamma)
 
-        trans_prob_mat = np.array([
-            [P_ss, P_si, P_sz],
-            [P_is, P_ii, P_iz],
-            [P_zs, P_zi, P_zz]
-        ])
+            def P_zs(a):
+                return 0
+
+            def P_zi(a):
+                if self.phi == 0:
+                    return 0
+                return P_si(a)*0.97
+
+            def P_zz(a):
+                return 1 - P_zi(a)
+
+            trans_prob_mat = np.array([
+                [P_ss, P_si, P_sz],
+                [P_is, P_ii, P_iz],
+                [P_zs, P_zi, P_zz]
+            ])
+            trans_probs.append(trans_prob_mat)
 
         reward_vector = np.array([self.u_s, self.u_i, self.u_z])
-        trans_probs = [trans_prob_mat]*horizon
         rewards = [reward_vector]*horizon
 
         """
@@ -447,7 +458,7 @@ class Adaptive_New():
                               0,
                               np.nanmax([self.u_z(a) for a in actions])]
 
-        # Use a Markov Decision Process with finite horizon to obta_in the optimal policy and decision.
+        # Use a Markov Decision Process with finite horizon to obtain the optimal policy and decision.
         MDP_adaptive = MDP.MDP(states, actions, rewards, trans_probs, horizon, delta,
                                logger=self.logger, verbose=self.verbose)
         MDP_adaptive.fit_optimal_values(init_point=init_point_use)
@@ -463,8 +474,7 @@ class Adaptive_New():
         val_func_vals = []
         print("Patching unit time solutions ...")
 
-        for t in tqdm(range(0, self.t_max)):
-
+        def compute_uni_solution(t):
             # State at end of last interval
             if t==0:
                 xt_start = [self.x00[0], self.x00[1], self.x00[1]]
@@ -481,6 +491,20 @@ class Adaptive_New():
                                                                                 cs_policies[0][1],
                                                                                 cs_policies[0][2]
                                                                                 )
+
+            return s_interval, i_interval, z_interval, cs_policies
+            
+
+        # Print tqdm or not.
+        if self.tqdm:
+            range_use = tqdm(range(0, self.t_max))
+        else:
+            range_use = range(0, self.t_max)
+        
+        for t in range_use:
+
+            s_interval, i_interval, z_interval, cs_policies = compute_uni_solution(t)
+
             S = np.concatenate((S, s_interval), axis=0)
             I = np.concatenate((I, i_interval), axis=0)
             Z = np.concatenate((Z, z_interval), axis=0)
@@ -518,9 +542,9 @@ class Adaptive_New():
         for i in tqdm(range(len(Cs))):
             cs_unistep = cs_unistep + [Cs[i]]*self.steps
             
-        plt.plot(np.linspace(0, self.t_max, len(cs_unistep)), cs_unistep, label="C^s")
+        plt.plot(np.linspace(0, self.t_max, len(cs_unistep)), cs_unistep, label="C^s", linewidth=3)
         plt.xlabel("Time (t)")
-        plt.ylabel("Cs")
+        plt.ylabel("Optimal contact selected")
         plt.legend(loc = "upper right")
         plt.rcParams["figure.figsize"] = (10,6)
         plt.show()
