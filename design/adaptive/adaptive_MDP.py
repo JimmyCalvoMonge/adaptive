@@ -334,6 +334,9 @@ class Adaptive_New():
         self.verbose = kwargs.get('verbose', False)
         self.tqdm = kwargs.get('tqdm', True)
 
+        # Compute solution until (S_t-S_{t+1})^2 + (I_t-I_{t+1})^2 + (I_t-I_{t+1})^2 < threshold
+        self.compute_max_t_threshold = kwargs.get('compute_max_t_threshold', None)
+        self.stopping_point = 0
 
     def state_odes_system(self, x, t, cs, ci, cz):
 
@@ -494,7 +497,6 @@ class Adaptive_New():
 
             return s_interval, i_interval, z_interval, cs_policies
             
-
         # Print tqdm or not.
         if self.tqdm:
             range_use = tqdm(range(0, self.t_max))
@@ -504,6 +506,13 @@ class Adaptive_New():
         for t in range_use:
 
             s_interval, i_interval, z_interval, cs_policies = compute_uni_solution(t)
+
+            if self.compute_max_t_threshold and t>1:
+                diff_vect = np.array([S[-1] - s_interval[-1], I[-1] - i_interval[-1], Z[-1] - z_interval[-1]])
+                if np.linalg.norm(diff_vect) < self.compute_max_t_threshold:
+                    self.stopping_point = t
+                    break
+                
 
             S = np.concatenate((S, s_interval), axis=0)
             I = np.concatenate((I, i_interval), axis=0)

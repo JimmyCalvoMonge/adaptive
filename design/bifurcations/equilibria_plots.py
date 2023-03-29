@@ -13,7 +13,6 @@ import pandas as pd
 from tqdm import tqdm
 import multiprocessing as mp
 from functools import partial
-adaptive_folder='C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
 import time
 import sympy as sp
 import itertools
@@ -21,6 +20,7 @@ import os
 
 x = sp.var('x')
 max_contacts_susc = 20
+adaptive_folder='C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
 
 def get_coefficients_cubic(Rphi, Rmu, R0, kappa, xi):
 
