@@ -27,14 +27,14 @@ Rphi = phi/(mu + gamma)
 max_contacts_susc = 20
 N = 10000
 
-def get_convergence_point(mu, gamma, beta, phi, val_tuple):
+def get_convergence_point(mu, gamma, beta, phi, val_tuple, prop):
 
     kappa = val_tuple[0]
     theta = val_tuple[1]
 
     if not f"res_{kappa}_{theta}.csv" in os.listdir(f"{adaptive_folder}/data/bifurcation_heatmap_adaptive"):
 
-        print(f"Processing tuple {(kappa,theta)}.")
+        print(f"Processing tuple {(kappa, theta, prop)}.")
         start_tuple = time.time()
 
         css = list(np.linspace(0.01,max_contacts_susc,1000)) #C^s
@@ -42,12 +42,13 @@ def get_convergence_point(mu, gamma, beta, phi, val_tuple):
         czs = [cs*kappa for cs in css] #C^z = theta C^s
         R0s = [ci*beta/(mu + gamma) for ci in cis] #R0
 
-        data_lists = []
+        x00 = [N - int(prop*N), int(prop*N), 0]
+
+        final_conv = []
+        final_stopping_point = []
+        R0s_used = []
 
         for i in range(len(R0s)):
-
-            final_conv = []
-            final_stopping_point = []
 
             ### Adaptive parameters
             # Quadratic Utility functions:
@@ -74,53 +75,53 @@ def get_convergence_point(mu, gamma, beta, phi, val_tuple):
             t_max = 7000
             steps = 100
 
-            props = np.linspace(0.00001, 0.05, 100)
-    
-            for prop in props:
+            # Initialize adaptive instances
+            instance_adaptive = Adaptive_New(
+                mu, gamma, beta, phi,
+                tau, delta,
+                u_s, u_i, u_z,
+                t_max, steps, x00, max_contacts=30,
+                logs=False, verbose=False, tqdm=False,
+                compute_max_t_threshold=1e-6)
 
-                x00 = [N - int(prop*N), int(prop*N), 0]
-                # Initialize adaptive instances
-                instance_adaptive = Adaptive_New(
-                    mu, gamma, beta, phi,
-                    tau, delta,
-                    u_s, u_i, u_z,
-                    t_max, steps, x00, max_contacts=30,
-                    logs=True, verbose=False, tqdm=False,
-                    compute_max_t_threshold=1e-6)
+            try:
                 instance_adaptive.patch_uni_solutions()
                 final_I = instance_adaptive.I[-1]/N
                 final_stopping_point.append(instance_adaptive.stopping_point)
                 final_conv.append(final_I)
+                R0s_used.append(R0s[i])
+            except Exception:
+                pass
 
-            data_this_R0 = pd.DataFrame({
-                'prop_inf_start': props,
-                'final_conv_inf_point': final_conv,
-                'final_stopping_point': final_stopping_point
-            })
+        data_this_iter = pd.DataFrame({
+            'R0': R0s_used,
+            'final_conv_inf_point': final_conv,
+            'final_stopping_point': final_stopping_point
+        })
 
-            data_this_R0['kappa'] = kappa
-            data_this_R0['theta'] = theta
-            data_this_R0['R0'] = R0s[i]
+        data_this_iter['kappa'] = kappa
+        data_this_iter['theta'] = theta
+        data_this_iter['prop'] = prop
 
-            data_lists.append(data_this_R0)
-
-        final_data = pd.concat(data_lists, ignore_index=True)
-        final_data.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap_adaptive/res_{kappa}_{theta}.csv")
+        data_this_iter.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap_adaptive/res_{kappa}_{theta}_{prop}.csv")
 
         end_tuple = time.time()
-        print(f"Tuple {(kappa,theta)} DONE. This took {end_tuple - start_tuple} seconds.")
+        print(f"Tuple {(kappa, theta, prop)} DONE. This took {end_tuple - start_tuple} seconds.")
 
 
 if __name__ == '__main__':
 
     # values 
-    kappas = [round(t,2) for t in np.linspace(0.1, 1, 30)]
-    thetas = [round(t,2) for t in np.linspace(0.1, 3, 30)]
-    param_lists = [kappas, thetas]
-    param_grid = list(itertools.product(*param_lists))
+    # kappas = [round(t,2) for t in np.linspace(0.1, 1, 30)]
+    # thetas = [round(t,2) for t in np.linspace(0.1, 3, 30)]
+    # param_lists = [kappas, thetas]
+    # param_grid = list(itertools.product(*param_lists))
+
+    # Bifurcation plot for (kappa, theta) = (0.8, 1.7) using adaptive behavior.
+    param_grid = np.linspace(0.00001, 0.05, 50)
 
     pool = mp.Pool()
-    func = partial(get_convergence_point, mu, gamma, beta, phi)
+    func = partial(get_convergence_point, mu, gamma, beta, phi, (0.8, 1.7))
     pool.map(func, param_grid)
     pool.close()
     pool.join()

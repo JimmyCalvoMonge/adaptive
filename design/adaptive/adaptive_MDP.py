@@ -338,6 +338,7 @@ class Adaptive_New():
         self.compute_max_t_threshold = kwargs.get('compute_max_t_threshold', None)
         self.stopping_point = 0
 
+
     def state_odes_system(self, x, t, cs, ci, cz):
 
         s = x[0]
@@ -475,7 +476,7 @@ class Adaptive_New():
         S, I, Z = [], [], []
         cs_history, ci_history, cz_history = [], [], []
         val_func_vals = []
-        print("Patching unit time solutions ...")
+        # print("Patching unit time solutions ...")
 
         def compute_uni_solution(t):
             # State at end of last interval
@@ -507,12 +508,14 @@ class Adaptive_New():
 
             s_interval, i_interval, z_interval, cs_policies = compute_uni_solution(t)
 
-            if self.compute_max_t_threshold and t>1:
+            if self.compute_max_t_threshold and t > 100:
+
                 diff_vect = np.array([S[-1] - s_interval[-1], I[-1] - i_interval[-1], Z[-1] - z_interval[-1]])
+                
                 if np.linalg.norm(diff_vect) < self.compute_max_t_threshold:
                     self.stopping_point = t
+                    # print(f"Stopped, found stopping condition at {t}")
                     break
-                
 
             S = np.concatenate((S, s_interval), axis=0)
             I = np.concatenate((I, i_interval), axis=0)
