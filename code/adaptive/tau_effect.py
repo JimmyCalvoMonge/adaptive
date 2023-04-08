@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Import our adaptive module:
-from adaptive_MDP import Adaptive_New
+from adaptive_MDP import Adaptive
 import multiprocessing as mp
 from functools import partial
 
@@ -54,7 +54,7 @@ taus = range(2, 60, 2)
 def get_min_peaks(mu, gamma, beta, phi, delta, u_s, u_i, u_z,
                   t_max, steps, x00, max_contacts, tau):
     print(tau)
-    instance_adaptive = Adaptive_New(
+    instance_adaptive = Adaptive(
         mu, gamma, beta, phi,
         tau, delta,
         u_s, u_i, u_z,

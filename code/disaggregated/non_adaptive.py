@@ -13,7 +13,7 @@ class NonAdaptive():
 
         # Logs:
 
-        logger_route = "C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive/design/logs"
+        logger_route = "C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive/code/logs"
         right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
         if not os.path.exists(logger_route):
             os.makedirs(logger_route, exist_ok=True)
