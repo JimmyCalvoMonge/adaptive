@@ -182,8 +182,6 @@ if __name__ == '__main__':
 
     param_lists = [beta_list, phi_list, prop_list, range(len(css))]
     param_grid = list(itertools.product(*param_lists))
-
-    param_grid = [param_grid[4]]
     print(f"Total number of computations to perform: {len(param_grid)}")
 
     pool = mp.Pool(processes=mp.cpu_count() - 1)
