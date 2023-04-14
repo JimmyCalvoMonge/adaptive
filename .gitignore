@@ -57,6 +57,7 @@ images/simulations/*
 
 # Ignore datafiles
 code/adaptive/data/bifurcation_heatmap_adaptive/*.csv
+code/adaptive/data/conj_1_simulations/*.csv
 code/disaggregated/data/bifurcation_data/*.csv
 code/disaggregated/data/bifurcation_heatmap/*.csv
 

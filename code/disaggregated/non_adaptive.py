@@ -148,13 +148,13 @@ class NonAdaptive():
 
         # intialize time
         t = 0
+        range_use = time
 
-        range_use = range(time) 
         if self.tqdm:
             range_use = tqdm(time)
 
         # approximate y at time t
-        for t in tqdm(time):
+        for t in range_use:
             state_history.append(yk)
             yk = self.rk4(self.ode_system, t, yk, dt)
 

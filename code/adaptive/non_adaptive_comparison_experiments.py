@@ -109,6 +109,8 @@ def get_convergence_point_comparison(kappa, theta,
             final_I_adaptive = instance_adaptive.I[-1]/N
             final_diff_adaptive = instance_adaptive.I[-1] - instance_adaptive.I[-steps]
 
+            print("adaptive done")
+
             # Run Non Adaptive With Last Values from Adaptive Computation
             instance_non_adaptive_ex_post = NonAdaptive(
                 mu, gamma, beta, phi,
@@ -120,6 +122,8 @@ def get_convergence_point_comparison(kappa, theta,
             instance_non_adaptive_ex_post.solve_odes_system()
             final_I_non_adaptive = instance_non_adaptive_ex_post.I[-1]/sum(x00)
             final_diff_non_adaptive = instance_non_adaptive_ex_post.I[-1] - instance_non_adaptive_ex_post.I[-steps]
+
+            print("non adaptive done")
 
             message = 'ok'
 
@@ -179,6 +183,7 @@ if __name__ == '__main__':
     param_lists = [beta_list, phi_list, prop_list, range(len(css))]
     param_grid = list(itertools.product(*param_lists))
 
+    param_grid = [param_grid[4]]
     print(f"Total number of computations to perform: {len(param_grid)}")
 
     pool = mp.Pool(processes=mp.cpu_count() - 1)
