@@ -49,6 +49,9 @@ class NonAdaptive():
         # For RK4
         self.dt = kwargs.get('dt', 0.01)
 
+        # tqdm
+        self.tqdm = kwargs.get('tqdm', True)
+
     # ============ Using python's odeint method =========== #
     
     def state_odes_system(self, x, t):
@@ -145,6 +148,10 @@ class NonAdaptive():
 
         # intialize time
         t = 0
+
+        range_use = range(time) 
+        if self.tqdm:
+            range_use = tqdm(time)
 
         # approximate y at time t
         for t in tqdm(time):

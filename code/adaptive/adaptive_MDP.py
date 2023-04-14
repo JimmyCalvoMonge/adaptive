@@ -252,11 +252,11 @@ class Adaptive():
 
             s_interval, i_interval, z_interval, cs_policies = compute_uni_solution(t)
 
-            if self.compute_max_t_threshold and t > 100:
+            if self.compute_max_t_threshold and t > 1000:
 
                 diff_vect = np.array([S[-1] - s_interval[-1], I[-1] - i_interval[-1], Z[-1] - z_interval[-1]])
                 
-                if np.linalg.norm(diff_vect) < self.compute_max_t_threshold:
+                if (np.linalg.norm(diff_vect, ord=2))**2 < self.compute_max_t_threshold:
                     self.stopping_point = t
                     # print(f"Stopped, found stopping condition at {t}")
                     break
