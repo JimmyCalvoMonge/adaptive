@@ -5,10 +5,14 @@ import time
 import multiprocessing as mp
 from functools import partial
 import os
+import pymongo
+import config
 
-adaptive_folder = 'C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
-adaptive_folder = f'{adaptive_folder}/code/adaptive/data/bifurcation_heatmap_adaptive'
-# adaptive_folder = './'
+client = pymongo.MongoClient(config.CONNECTION_STRING,
+                             tls=True,
+                             tlsAllowInvalidCertificates=True)
+results_db = client['JimmyCMStorage']
+experiments_collection = results_db['ADAPTIVE_EXPERIMENTS_COLLECTION']
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -29,6 +33,10 @@ Rphi = phi/(mu + gamma)
 max_contacts_susc = 20
 N = 10000
 
+### Simulation parameters
+t_max = 10000 # max days
+steps = 50
+
 kappa = 0.8
 theta = 1.2
 
@@ -38,6 +46,36 @@ cis = [cs*kappa for cs in css] #C^i = kappa C^s
 czs = [cs*theta for cs in css] #C^z = theta C^s
 R0s = [ci*beta/(mu + gamma) for ci in cis] #R0
 R0s = [round(r0, 4) for r0 in R0s]
+
+def get_current_processed_tuples(kappa, theta):
+
+    data_db = pd.DataFrame({
+            'kappa': [],
+            'theta': [],
+            'prop': [],
+            'R0': [],
+            'final_conv_inf_point': [],
+            'final_stopping_point': [],
+            'message' : []
+    })
+    num_jobs = 0
+
+    docs = experiments_collection.find({'_id': f'bifurcation_experiments_{kappa}_{theta}'})
+    for doc in docs:
+        num_jobs = num_jobs + 1
+        try:
+            data_db = pd.read_json(doc['data'], orient='split')
+        except Exception:
+            continue
+    
+    if num_jobs == 0:
+        doc_insert = {
+        "_id": f'bifurcation_experiments_{kappa}_{theta}',
+        "data": data_db.to_json(date_format='iso', orient='split')
+        }
+        experiments_collection.insert_one(doc_insert)
+
+    return data_db
 
 
 def get_convergence_point(mu, gamma, beta, phi, kappa, theta, val_tuple):
@@ -55,17 +93,20 @@ def get_convergence_point(mu, gamma, beta, phi, kappa, theta, val_tuple):
     Using different C_opt^{s*}, making C_opt^{i*} vary and also R_{0,opt}^*
     """
 
-    if not f"res{pre_index}_{kappa}_{theta}_{prop}_{R0}.csv" in os.listdir(adaptive_folder):
+    cur_proc_data = get_current_processed_tuples(kappa, theta)
+    cur_proc_data = cur_proc_data[(cur_proc_data['prop']==prop) & (cur_proc_data['R0']==R0)]
+
+    if cur_proc_data.shape[0] == 0:
 
         print(f"Processing tuple {(kappa, theta, prop, R0)} ...")
         start_tuple = time.time()
 
         x00 = [N - int(prop*N), int(prop*N), 0]
-        final_conv = []
-        final_stopping_point = []
-        R0s_used = []
+        final_conv = 0
+        final_stopping_point = 0
+        R0_used = 0
 
-        ### Adaptive parameters
+        # Adaptive parameters
         # Quadratic Utility functions:
 
         a_s = 0
@@ -83,10 +124,6 @@ def get_convergence_point(mu, gamma, beta, phi, kappa, theta, val_tuple):
         def u_z(a):
             return (b_z*a - a**2)**nu - a_z
 
-        ### Simulation parameters
-        t_max = 10000 # max days
-        steps = 50
-
         # Initialize adaptive instances
         instance_adaptive = Adaptive(
             mu, gamma, beta, phi,
@@ -97,32 +134,38 @@ def get_convergence_point(mu, gamma, beta, phi, kappa, theta, val_tuple):
             compute_max_t_threshold=1e-5)
         
         try:
+
             instance_adaptive.patch_uni_solutions()
+
             final_I = instance_adaptive.I[-1]/N
-            final_stopping_point.append(instance_adaptive.stopping_point)
-            final_conv.append(final_I)
-            R0s_used.append(R0)
+            final_stopping_point = instance_adaptive.stopping_point
+            final_conv = final_I
+            R0_used = R0
             message = 'ok'
-        
+
         except Exception as e:
             message = e
-            final_stopping_point.append(0)
-            final_conv.append(0)
-            R0s_used.append(f"{R0}_ERROR")
             pass
 
         data_this_iter = pd.DataFrame({
-            'R0': R0s_used,
-            'final_conv_inf_point': final_conv,
-            'final_stopping_point': final_stopping_point
+            'kappa': [kappa],
+            'theta': [theta],
+            'prop': [prop],
+            'R0': [R0_used],
+            'final_conv_inf_point': [final_conv],
+            'final_stopping_point': [final_stopping_point],
+            'message': [message]
         })
 
-        data_this_iter['kappa'] = kappa
-        data_this_iter['theta'] = theta
-        data_this_iter['prop'] = prop
-        data_this_iter.to_csv(f"{adaptive_folder}/res{pre_index}_{kappa}_{theta}_{prop}_{R0}.csv")
+        data_db = get_current_processed_tuples(kappa, theta)
+
+        new_data_db = pd.concat([data_this_iter, data_db])
+        new_data_db_json = new_data_db.to_json(date_format='iso', orient='split')
+        experiments_collection.update_one({"_id": f"bifurcation_experiments_{kappa}_{theta}"},
+                                            {"$set":{"data": new_data_db_json}})
 
         end_tuple = time.time()
+
         print(f"Tuple {(kappa, theta, prop, R0)} DONE. This took {(end_tuple - start_tuple)/60} minutes. Message: {message}")
 
     else:
@@ -133,10 +176,9 @@ if __name__ == '__main__':
 
     print(f"Number of physical cores available: {mp.cpu_count()}")
     nmbr_proc = 0
-    for file in os.listdir(adaptive_folder):
-        if f'res{pre_index}_{kappa}_{theta}' in file:
-            nmbr_proc = nmbr_proc + 1
-    print(f"Number of processed tuples so far: {nmbr_proc} <--- ")
+
+    curr_proc_data = get_current_processed_tuples(kappa, theta)
+    print(f"Number of processed tuples so far: {curr_proc_data.shape[0]} <--- ")
 
     # Bifurcation plot for (kappa, theta) using adaptive behavior.
     # In this case we don't know the final equilibrium points.
@@ -154,15 +196,7 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    # Join all results:
-    final_data = pd.DataFrame({})
-    for file in os.listdir(adaptive_folder):
-        if file.endswith(".csv") and file.startswith(f"res{pre_index}_{kappa}_{theta}"):
-            data_tuple = pd.read_csv(f'{adaptive_folder}/{file}')
-            final_data = final_data.append(data_tuple, ignore_index = True)
-            # os.remove(f'{adaptive_folder}/data/bifurcation_heatmap_adaptive/{file}') # Delete file
-
-    final_data.to_csv(f"{adaptive_folder}/simulation_adaptive_bifurcation{pre_index}_{kappa}_{theta}.csv")
+    final_data = get_current_processed_tuples(kappa, theta)
     print(f"We are done. Final data shape: {final_data.shape} ==========================")
 
 
