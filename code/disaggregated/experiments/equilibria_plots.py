@@ -6,6 +6,9 @@ Find number of equilibria points found for each combination of
 Using Sturms theorem : https://en.wikipedia.org/wiki/Sturm%27s_theorem
 For each ((C^i/C^s, C^z/C^s, R0) combination we form the equilibrium polynomial at the
 
+Initial experiments for article
+`A nonlinear relapse model with disaggregated contact rates: analysis of a forward-backward bifurcation`
+
 """
 
 import numpy as np
@@ -17,10 +20,10 @@ import time
 import sympy as sp
 import itertools
 import os
-
+from base_path import base_path
 x = sp.var('x')
 max_contacts_susc = 20
-adaptive_folder='C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive'
+adaptive_folder = f'{base_path}/disaggregated'
 
 def get_coefficients_cubic(Rphi, Rmu, R0, kappa, xi):
 
@@ -121,8 +124,7 @@ if __name__ == '__main__':
         if file.endswith(".csv") and file.startswith("res"):
             data_tuple = pd.read_csv(f'{adaptive_folder}/data/bifurcation_heatmap/{file}')
             final_data = final_data.append(data_tuple, ignore_index = True)
-            os.remove(f'{adaptive_folder}/data/bifurcation_heatmap/{file}') # Delete file
+            os.remove(f'{adaptive_folder}/disaggregated/data/bifurcation_heatmap/{file}') # Delete file
 
-    final_data.to_csv(f"{adaptive_folder}/data/bifurcation_heatmap/simulation_11_Nov_02.csv")
+    final_data.to_csv(f"{adaptive_folder}/disaggregated/data/bifurcation_heatmap/simulation_11_Nov_02.csv")
     print(f"We are done. Final data shape: {final_data.shape} ==========================")
-    

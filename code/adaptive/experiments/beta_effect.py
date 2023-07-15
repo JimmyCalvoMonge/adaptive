@@ -1,13 +1,18 @@
 import numpy as np
 import pandas as pd
-
+import sys
 import warnings
 warnings.filterwarnings("ignore")
-
-# Import our adaptive module:
-from adaptive_MDP import Adaptive
 import multiprocessing as mp
 from functools import partial
+# Import our adaptive module:
+import sys
+from base_path import base_path
+sys.path.insert(0, f'{base_path}/adaptive/source_code')
+sys.path.insert(0, f'{base_path}/disaggregated/source_code')
+adaptive_MDP = __import__('adaptive_MDP', globals=None, locals=None, fromlist=(), level=0)
+Adaptive = adaptive_MDP.Adaptive
+
 
 # ================================================== #
 

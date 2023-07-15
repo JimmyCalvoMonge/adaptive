@@ -6,14 +6,21 @@ import os
 import logging
 from tqdm import tqdm
 
+# base_path
+from inspect import currentframe, getframeinfo
+from pathlib import Path
+filename = getframeinfo(currentframe()).filename
+# ./code/adaptive/source_code
+file_path_parent = Path(filename).resolve().parent
+base_path = os.path.dirname(os.path.dirname(file_path_parent))  # ./code
+
 
 class NonAdaptive():
 
     def __init__(self, mu, gamma, beta, phi, Cs, Ci, Cz, x00, t_max, **kwargs):
 
         # Logs:
-
-        logger_route = "C:/Users/jimmy/OneDrive/Desktop/Maestria Metodos Matematicos y Aplicaciones/Tesis/adaptive/code/logs"
+        logger_route = f"{base_path}/logs"
         right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
         if not os.path.exists(logger_route):
             os.makedirs(logger_route, exist_ok=True)
@@ -53,7 +60,7 @@ class NonAdaptive():
         self.tqdm = kwargs.get('tqdm', True)
 
     # ============ Using python's odeint method =========== #
-    
+
     def state_odes_system(self, x, t):
 
         s = x[0]
@@ -88,7 +95,8 @@ class NonAdaptive():
         self.full_solution = x
 
     # ============ Using Four Step Runge-Kutta ============ #
-    # Taken from https://medium.com/geekculture/runge-kutta-numerical-integration-of-ordinary-differential-equations-in-python-9c8ab7fb279c
+    # Taken from https://medium.com/geekculture/runge-kutta-
+    # numerical-integration-of-ordinary-differential-equations-in-python-9c8ab7fb279c
 
     def ode_system(self, _t, _y):
         """
@@ -180,7 +188,7 @@ class NonAdaptive():
 
     def plot_ode_solution(self, **kwargs):
 
-        title = kwargs.get('title','Plot')
+        title = kwargs.get('title', 'Plot')
 
         plt.plot(self.time, self.S, label="Susceptible")
         plt.plot(self.time, self.I, label="Infected")

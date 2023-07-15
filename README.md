@@ -9,5 +9,6 @@ We study the adaptive human behavior model implemented in the article [Adaptive 
 
     - `code/disaggregated`: contains code and simulations for article: [A nonlinear relapse model with disaggregated contact rates: analysis of a forward-backward bifurcation](https://arxiv.org/abs/2302.00161)
     - `code/adaptive`: contains an implementation of adaptive algorithms for epidemiological models with relapse. The module `MDP` implements a simple finite horizon *Markov Decision Process*, and the module `adaptive_MDP` uses this to solve epidemiological models.
+    - In each section please review `source_code` for the code modules and `experiments` for some jupyter notebooks and scripts computing images for research and simulations.
 
 JCM

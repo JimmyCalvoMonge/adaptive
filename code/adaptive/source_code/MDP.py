@@ -1,7 +1,8 @@
 import numpy as np
 
+
 class MDP():
-    
+
     """
     Implements a simple Markov Decision Process.
     With discrete actions and states spaces.
@@ -21,29 +22,31 @@ class MDP():
     """
 
     def __init__(self,
-    S: list,
-    A: list,
-    rewards: list,
-    trans_probs: list,
-    horizon: int,
-    delta: float,
-    **kwargs):
+                 S: list,
+                 A: list,
+                 rewards: list,
+                 trans_probs: list,
+                 horizon: int,
+                 delta: float,
+                 **kwargs):
 
-        self.A = A # Actions space
-        self.S = S # States space
+        self.A = A  # Actions space
+        self.S = S  # States space
         self.N = len(self.S)
-        self.rewards = rewards # Immediate Reward
-        self.trans_probs = trans_probs # Transition probabilities
-        self.horizon = horizon # Planning horizon
-        self.delta = delta # Discount factor
+        self.rewards = rewards  # Immediate Reward
+        self.trans_probs = trans_probs  # Transition probabilities
+        self.horizon = horizon  # Planning horizon
+        self.delta = delta  # Discount factor
         self.logger = kwargs.get('logger', None)
 
         """
         A a list of actions.
         S a list of states.
         Define N = len(S)
-        rewards: a list of self.horizon vectors in R^N, whose entries are functions that depend on a in A.
-        trans_probs: a list of self.horizon matrices in R^{NxN}, whose entries are functions that depend on a in A.
+        rewards: a list of self.horizon vectors in R^N,
+        whose entries are functions that depend on a in A.
+        trans_probs: a list of self.horizon matrices in R^{NxN},
+        whose entries are functions that depend on a in A.
         horizon: an integer.
         """
         self.verbose = kwargs.get('verbose', None)
@@ -73,13 +76,11 @@ class MDP():
         # ##### START DECISION PROCESS #################
         # ##############################################
 
-
-        # Init point: 
+        # Init point:
 
         # {x}
 
         # """)
-
 
         for t in range(self.horizon):
 
@@ -90,20 +91,22 @@ class MDP():
 
             # self._vprint(f"""
             #     Values of x (Value function vector) at this point:
-            #     {x}                
+            #     {x}
             # """)
 
-            reward_step = self.rewards[t] #This is the vector with entries u_h^t(a) for h in S
-            probs_step = self.trans_probs[t] # This is matrix with entries P_{hk}^t(a) for h,k in S
+            # This is the vector with entries u_h^t(a) for h in S
+            reward_step = self.rewards[t]
+            # This is matrix with entries P_{hk}^t(a) for h,k in S
+            probs_step = self.trans_probs[t]
 
             all_prob_matrices = []
             for a in self.A:
-                probs_matrix = probs_step[0,1](a)
+                probs_matrix = probs_step[0, 1](a)
                 all_prob_matrices.append(probs_matrix)
 
             policies_step = {}
             vals = []
-            
+
             for h in range(self.N):
 
                 # self._vprint(f"""
@@ -111,20 +114,26 @@ class MDP():
                 # """)
 
                 # rwrds = [reward_step[h](a) for a in self.A]
-                # val_funcs = [self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
+                # val_funcs = [self.delta*sum([probs_step[h,k](a)*x[k] for
+                # k in range(self.N)]) for a in self.A]
 
                 # self._vprint(f"""
-                # Rewards: 
+                # Rewards:
                 # {rwrds}
                 # Delta*sums:
                 # {val_funcs}
                 # """)
 
-                # values = [reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A]
+                # values = [reward_step[h](a) + \
+                # self.delta*sum([probs_step[h,k](a)*x[k]
+                # for k in range(self.N)]) for a in self.A]
                 # max_val = np.nanmax(np.array(values))
                 # max_arg = self.A[values.index(max_val)]
 
-                values = np.array([reward_step[h](a) + self.delta*sum([probs_step[h,k](a)*x[k] for k in range(self.N)]) for a in self.A])
+                values = np.array([reward_step[h](
+                    a) + self.delta*sum(
+                    [probs_step[h, k](a)*x[k]
+                     for k in range(self.N)]) for a in self.A])
                 max_val = np.nanmax(values)
                 max_arg = self.A[np.nanargmax(values)]
 
@@ -140,13 +149,15 @@ class MDP():
 
             x = np.array(vals)
             for h in self.S:
-                x_history[h].insert(0,x[h])
+                x_history[h].insert(0, x[h])
 
             policies.append(policies_step)
 
         self.values = x
         self.values_history = x_history
-        policies.reverse() # We reverse the policies, because the for loop started in the last time step in the horizon.
+        # We reverse the policies, because the for loop started in
+        # the last time step in the horizon.
+        policies.reverse()
         self.policies = policies
 
         # self._vprint(f"""
