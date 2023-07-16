@@ -242,7 +242,7 @@ class Adaptive():
         def compute_uni_solution(t):
             # State at end of last interval
             if t == 0:
-                xt_start = [self.x00[0], self.x00[1], self.x00[1]]
+                xt_start = [self.x00[0], self.x00[1], self.x00[2]]
                 cs_use, ci_use, cz_use = self.cs_max, self.ci_max, self.cz_max
             else:
                 cs_use, ci_use, cz_use = cs_history[-1], \
