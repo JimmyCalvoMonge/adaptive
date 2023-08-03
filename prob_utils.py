@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import random
 from matlab_utils import randperm, cumsum
 
 # Custom Functions:
@@ -100,10 +101,7 @@ def setupFamilies(fileName):
 
 def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
 
-    idToOptimal, idToCurvature = [0]*numIDs, [0]*numIDs
-
     """
-    TODO:
     This creates an assignment of contact behaviour specs for each node.
     id | optimal_coworker_contacts | willingness_to_change
     .  | ....                      | ....
@@ -157,31 +155,70 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
 
     """
 
-    # Examples (decide):
-    p_high_contact = 0.2
-    p_high_curvature_high_contact = 0
-    p_low_curvature_high_contact = 1
-    
-    p_middle_contact = 0.5
-    p_high_curvature_middle_contact = 0
-    p_low_curvature_middle_contact = 1
+    idToOptimal = [0]*numIDs
+    idToCurvature = ['']*numIDs
 
-    p_low_contact = 0.3
-    p_high_curvature_low_contact = 0
-    p_low_curvature_low_contact = 1
+    for county_idx in range(len(countyToIDs)):
 
-    for county_idx, countyPop in enumerate(countyToIDs):
-        
         contact_range_county = range(minmaxBubble[county_idx][0], minmaxBubble[county_idx][1] + 1)
+        q25 = int(np.quantile(contact_range_county, 0.25))
+        q75 = int(np.quantile(contact_range_county, 0.75))
+        min_county, max_county = minmaxBubble[county_idx][0], minmaxBubble[county_idx][1]
+        countyPop = countyToIDs[county_idx]
 
-        # High contact individuals:
-        # Sample p_high_contact out of the countyPop:
-        samp_high_contact = []
+        p_high_contact = 0.2
+        p_high_curvature_high_contact = 0.05
+        p_low_curvature_high_contact = 0.95
 
-        # Of those, assign high_curvature and low curvature:
+        p_middle_contact = 0.5
+        p_high_curvature_middle_contact = 0.05
+        p_low_curvature_middle_contact = 0.95
 
-        # Middle contact individuals:
+        # p_low_contact = 1 - p_high_contact - p_middle_contact
+        p_high_curvature_low_contact = 0.05
+        p_low_curvature_low_contact = 9.95
 
-        # Low contact individuals:
+        probs_curvatures = [
+            (p_high_curvature_high_contact, p_low_curvature_high_contact),
+            (p_high_curvature_middle_contact, p_low_curvature_middle_contact),
+            (p_high_curvature_low_contact, p_low_curvature_low_contact)
+        ]
+
+        countyPop_shuffled = random.sample(countyPop, len(countyPop))
+
+        size_high_contact = int(p_high_contact*len(countyPop))
+        size_middle_contact = int(p_middle_contact*len(countyPop))
+        # size_low_contact = len(countyPop) - size_high_contact - size_middle_contact
+
+        groups = [countyPop_shuffled[0: size_high_contact],
+                countyPop_shuffled[size_high_contact: size_high_contact + size_middle_contact],
+                countyPop_shuffled[size_high_contact + size_middle_contact: len(countyPop_shuffled)]]
+
+        all_groups_split = []
+
+        for idx, group in enumerate(groups):
+            size_high_curvature = int(probs_curvatures[idx][0]*len(group))
+            # size_low_curvature = len(group) - size_high_curvature
+            group_split = [group[0: size_high_curvature], group[size_high_curvature: len(group)]]
+            all_groups_split.append(group_split)
+
+        indv_labels = []
+        for idx, group_split in enumerate(all_groups_split):
+            if idx == 0:
+                opt_ct = int(random.randint(q75, max_county))
+            elif idx == 1:
+                opt_ct = int(random.randint(q25, q75))
+            else:
+                opt_ct = int(random.randint(min_county, q25))
+                
+            for idd in group_split[0]:
+                indv_labels.append((idd, opt_ct, 'high'))
+            for idd in group_split[1]:
+                indv_labels.append((idd, opt_ct, 'low'))
+
+        for i in range(len(indv_labels)):
+            idx_use = indv_labels[i][0]
+            idToOptimal[idx_use] = indv_labels[i][1]
+            idToCurvature[idx_use] = indv_labels[i][2]
 
     return idToOptimal, idToCurvature

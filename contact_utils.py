@@ -77,4 +77,8 @@ def decide_contacts_adaptive_node(optimal, curvature, minmaxBubble, chosenN1_0, 
     TODO
     """
 
-    return 
+    chosenN1, chosenN2 = chosenN1_0, chosenN2_0
+
+    # ... Alter the chosen edges ...
+
+    return chosenN1, chosenN2
