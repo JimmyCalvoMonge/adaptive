@@ -5,7 +5,7 @@ from tqdm import tqdm
 from matlab_utils import cell, randi, randperm, \
     setdiff, randsample, rand, sort, histc
 # from prob_utils import readProbFile, setupFamilies
-from contact_utils import decide_contacts_susc
+from contact_utils import decide_contacts_susc, decide_contacts_pooling
 
 
 # Main Function:
@@ -65,13 +65,13 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
 
         # ==================================================== #
         # ========== Update Contacts for Layers 0 and 1 ====== #
-        #  update network: include contacts for new exposed people
+        # update network: include contacts for new exp. people #
         #===================================================== #
 
-        for j in range(len(newExposedIDs)):
-            currID = newExposedIDs[j]  #  current ID
-            numFamily = idToFamily[currID]
+        for currID in newExposedIDs:
 
+            # Add family (layer 0):
+            numFamily = idToFamily[currID]
             if(not familyAdded[numFamily]): #  check if family has been added before
                 familyNodes = familyToIDs[numFamily]  #  IDs for family
                 nodesToAdd = list(compress(
@@ -85,7 +85,7 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
                     edges[allEdges[m][0]][0].append(allEdges[m][1])
                     edges[allEdges[m][1]][0].append(allEdges[m][0])
 
-            # for layer = 2:3
+            # Add layer 1:
             layer = 1
             newConnections = int(max(0, degrees[currID][layer - 1] - len(edges[currID][layer])))
 
@@ -93,10 +93,9 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
 
                 #  who is eligible
                 population = poolPeople[idToCounty[currID]]
-                elegiblesW = [population[k] for k in randi(len(population), 3*newConnections)]
-                elegiblesW = setdiff(elegiblesW, [currID] + edges[currID][0] + edges[currID][1] + edges[currID][2])
-                newCoworkers = [elegiblesW[t] for t in
-                    randperm(len(elegiblesW), k_=min(newConnections, len(elegiblesW)))]
+                newCoworkers = decide_contacts_pooling(currID,
+                            newConnections, population, edges[currID], multiple=3)
+
                 #  find preexisting nodes on the graph
                 nodesToAdd = list(compress(
                     newCoworkers, [notadded[k] for k in newCoworkers]))
@@ -123,23 +122,22 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
 
             newConnections = degrees[currID][layer-1]
             population = poolPeople[idToCounty[currID]]
-            elegiblesW = [population[k] for k in randi(len(population), 2*int(newConnections))]
-            teem = [currID] + edges[currID][0] + edges[currID][1] + edges[currID][2]
-            elegiblesW = setdiff(elegiblesW, teem)
-            newCoworkers = [elegiblesW[t] for t in 
-                            randperm(len(elegiblesW), k=min(len(elegiblesW),newConnections))]
+            newCoworkers = decide_contacts_pooling(currID,
+                            newConnections, population, edges[currID], multiple=2)
+
             #  find preexisting nodes on the graph
             nodesToAdd = list(compress(
                     newCoworkers, [notadded[k] for k in newCoworkers]))
             #  update added
             for node in nodesToAdd:
                 notadded[node] = False
-            #  add edges
-            allEdges = newCoworkers
-            #  update neighbors
-            edges[currID][layer] = allEdges
-            for m in range(len(allEdges)):
-                edges[allEdges[m]][layer].append(currID)
+
+            #  update neighbors and add edges:
+            # Make this person have all these as contacts
+            edges[currID][layer] = newCoworkers
+            # Add this person as a contact to each coworker:
+            for m in range(len(newCoworkers)):
+                edges[newCoworkers[m]][layer].append(currID)
 
         # ==================================================== #
         # ========== probability of infection: ================ #

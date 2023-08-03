@@ -19,6 +19,7 @@ def readProbFile(file):
         result[sheet] = df.cumsum(axis=1).values
     return result
 
+
 def setupFamilies(fileName):
     
     # read demographic data (located in the same directory)
@@ -95,3 +96,92 @@ def setupFamilies(fileName):
         familyToIDs.append(list(range_))
 
     return numIDs, numFam, idToCounty, idToFamily, idToAge, familyToIDs, countyToIDs
+
+
+def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
+
+    idToOptimal, idToCurvature = [0]*numIDs, [0]*numIDs
+
+    """
+    TODO:
+    This creates an assignment of contact behaviour specs for each node.
+    id | optimal_coworker_contacts | willingness_to_change
+    .  | ....                      | ....
+
+    willingness_to_change: parameter that will control the utility function curvature.
+    optimal_coworkwer_contacts: utility function optimal point (decision purely economical).
+
+    function returns two vectors:
+
+    idToOptimalCts  <- an optimal contact number for each individual in the population. 
+    idToCurvature <- a utility function curvature parameter for each individual in the population.
+
+    Algorithm proposed:
+    - Contacts selected by individuals are restricted to county limits.
+    We use three types of populations within a county:
+        1. People with high optimal contact requirements ---> They have a optimal contacts in the upper quartile of the county allowed contact range.
+        2. People with middle optimal contact requirements ---> They have a optimal contacts between q25 and q75 of the county allowed contact range.
+        3. People with low optimal contact requirements ---> They have a optimal contacts in the lower quartile of the county allowed contact range.
+
+    We set a proportion of high contact individuals:  p_high_contact
+    We set a proportion of middle contact individuals:  p_middle_contact
+    We set a proportion of low contact individuals:  p_low_contact
+
+    We also must set a utility function curvature for each individual.
+    There are two types of individuals with this specs:
+        1. Individuals with high curvature (less willing to change contacts in view of disease).
+        2. Individuals with low curvature (more willing to change contacts in view of disease).
+    
+    For each county:
+
+        contact_range_county = range(minmaxBubble[county][0], minmaxBubble[county][1])
+        
+        # High contacts:
+        random sample p_high_contact individuals of the county assign them a contact number in the upper q75 of contact_range_county
+        for those, assign a proportion p_high_curvature_high_contact with high curvature and a proportion p_low_curvature_high_contact with low curvature.
+
+        # Middle contacts:
+        random sample p_middle_contact individuals of the county that are left and assign them a contact number in the upper q75 of contact_range_county
+        for those, assign a proportion p_middle_curvature_middle_contact with middle curvature and a proportion p_low_curvature_middle_contact with low curvature.
+
+        # Low contacts:
+        random sample p_low_contact individuals of the county that are left and assign them a contact number in the upper q75 of contact_range_county
+        for those, assign a proportion p_low_curvature_low_contact with low curvature and a proportion p_low_curvature_low_contact with low curvature.
+
+        Add these specs to idToOptimal and idToCurvature
+
+    return idToOptimal, idToCurvature
+
+    Note that only the susceptible individuals make an adaptive decision process here.
+    (we are back to the non-relapse case, for simplicity). This will be only for susceptibles.
+
+    """
+
+    # Examples (decide):
+    p_high_contact = 0.2
+    p_high_curvature_high_contact = 0
+    p_low_curvature_high_contact = 1
+    
+    p_middle_contact = 0.5
+    p_high_curvature_middle_contact = 0
+    p_low_curvature_middle_contact = 1
+
+    p_low_contact = 0.3
+    p_high_curvature_low_contact = 0
+    p_low_curvature_low_contact = 1
+
+    for county_idx, countyPop in enumerate(countyToIDs):
+        
+        contact_range_county = range(minmaxBubble[county_idx][0], minmaxBubble[county_idx][1] + 1)
+
+        # High contact individuals:
+        # Sample p_high_contact out of the countyPop:
+        samp_high_contact = []
+
+        # Of those, assign high_curvature and low curvature:
+
+        # Middle contact individuals:
+
+        # Low contact individuals:
+
+    return idToOptimal, idToCurvature

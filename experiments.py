@@ -5,7 +5,7 @@ from cProfile import Profile
 from pstats import SortKey, Stats
 from prob_utils import readProbFile, setupFamilies
 probFILE = './config_data/prob.xlsx'
-familyFILE = './config_data/setupFamily.csv'
+familyFILE = './config_data/setupFamily_reduced.csv'
 
 print('Reading probability file')
 acum = readProbFile(probFILE)
@@ -27,13 +27,13 @@ if __name__ == '__main__':
     #     )
 
     numSim = 1
-    direc = './'
-    T = 20
+    T = 100
     for sim in range(numSim):
         start_time = time.time()
-        model_results_sim = mainCall(T)
+        model_results_sim = mainCall(T, acum, numIDs, numFam, idToCounty, idToFamily,
+                                     idToAge, familyToIDs, countyToIDs)
         end_time = time.time()
         print(f'This iteration of {T} days lasted {end_time - start_time} seconds.')
-        model_results_sim.to_csv(f'model_results_sim_{sim}.csv', index=False)
+        model_results_sim.to_csv(f'./results/model_results_sim_{sim}.csv', index=False)
         # for val in dict_return_sim.items():
         #     pd.DataFrame(val[1]).to_csv(f'{val[0]}_{sim}.csv')

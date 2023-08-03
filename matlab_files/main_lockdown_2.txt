@@ -85,8 +85,8 @@ notadded = true(numIDs,1);     % ... not added IDs
 % edge connectivity per layer
 edges = cell(numIDs,3);
 % number of contacts per ID: uniform value on [min, min+delta-1]
-dgrLyr2 = uint8(min_coworkers + randi(delta_coworkers,numIDs,1)-1);
-dgrLyr3 = uint8(min_sporadic  + randi(delta_sporadic, numIDs,1)-1);
+dgrLyr2 = uint8(min_coworkers+randi(delta_coworkers,numIDs,1)-1);
+dgrLyr3 = uint8(min_sporadic +randi(delta_sporadic, numIDs,1)-1);
 degrees = [dgrLyr2 dgrLyr3];
 % list of possible contacts (to save time)
 poolPeople   = cell(numCounties,1); % lista de elegibles por cantón
@@ -104,6 +104,9 @@ timeStateID(newExposedIDs) = 1; % on day 1
 % 4.
 for day = 1:T
     % update network: include contacts for new exposed people
+    
+    %%%% Seleccionar contactos para los nuevos expuestos: %%%%%%%%%
+    % Capa 1 y 2:
     for j = 1:numel(newExposedIDs)
         currID     = newExposedIDs(j);  % current ID
         numFamily  = idToFamily(currID);
@@ -124,9 +127,9 @@ for day = 1:T
         if(newConnections>0)
             % who is eligible
             population = poolPeople{idToCounty(currID)};
-            % Decide number of contacts for layer 2 for newexposed ID's:
-            newCoworkers = decide_contacts_pooling(currID, ...
-            newConnections, population, edges, 3);
+            elegiblesW = population(randi(numel(population),1,3*newConnections));
+            elegiblesW = setdiff(elegiblesW, [currID edges{currID,1} edges{currID,2} edges{currID,3}]);
+            newCoworkers = elegiblesW(randperm(numel(elegiblesW),min(newConnections,numel(elegiblesW))));
             % find preexisting nodes on the graph
             nodesToAdd = newCoworkers(notadded(newCoworkers));
             % update added
@@ -141,17 +144,23 @@ for day = 1:T
         end
         %end
     end
+
+    % Capa 3 (por día):
     layer = 3;
+    % Buscar contactos para enfermos, y expuestos
     vector = find(stateID==2 | stateID==3)';
     for j = 1:numIDs
         edges{j,layer} = [];
     end
     for currID = vector
-        newConnections = degrees(currID, layer-1);
+        % Decision desde el punto de vista enfermo (diagnosticado o no distinguir) ...
+        newConnections = degrees(currID,layer-1);
         population = poolPeople{idToCounty(currID)};
-        % Decide number of contacts with layer 3 for infected individuals:
-        newCoworkers = decide_contacts_pooling(currID, ...
-            newConnections, population, edges, 2);
+        elegiblesW = population(randi(numel(population),1,2*newConnections));
+        teem = [currID edges{currID,1} edges{currID,2} edges{currID,3}];
+        %teeem = [currID cat(2,edges{currID,:})];
+        elegiblesW = setdiff(elegiblesW,teem);
+        newCoworkers = elegiblesW(randperm(numel(elegiblesW),min(numel(elegiblesW),newConnections)));
         % find preexisting nodes on the graph
         nodesToAdd = newCoworkers(notadded(newCoworkers));
         % update added
@@ -164,9 +173,12 @@ for day = 1:T
             edges{allEdges(m),layer}(end+1) = currID;
         end
     end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
     % probability of infection: state 2, 3, 4 can infect their contacts
     newExposedIDs = [];   % restart list of new E
-    StoE = unique(cat(2,edges{(stateID==2|stateID==3|stateID==4),1:3}));
+    StoE = unique(cat(2,edges{(stateID==2|stateID==3|stateID==4),1:3})); % gente que se contacta con alguien de estado 2,3,4
     % set daily % mask and social distancing
     if(day==20) % strict measures on day 20
         pUseMask = .9;
@@ -184,13 +196,35 @@ for day = 1:T
     pUseDist = (minDist+10*rand(numCounties,1))/100;
     for currID = StoE
         if(stateID(currID)==0)  % check susceptibles
+            
+            %%%%%%%%%%% Contactos se reducen para ajustarse al minmax del cantón. %%%%%%%%%%%%
+            % Decisión que toman los susceptibles: 
             numCounty  = idToCounty(currID);
-            % Decide contacts for susceptibles:
-            [chosenN1, chosenN2] = decide_contacts_susc(numCounty, ...
-                minmaxBubble, edges{currID,2}, edges{currID,3});
+            sizeBubble = minmaxBubble(numCounty,1)+randi(minmaxBubble(numCounty,2)-minmaxBubble(numCounty,1)+1,1)-1; % <--- Decisión que toman los susceptibles
+            % Persona compara utilidad vs la infeccion (paso adaptivo)
+            chosenN1 = edges{currID,2};
+            chosenN2 = edges{currID,3};
+            if(numel(chosenN1)+numel(chosenN2) > sizeBubble)
+                nN = randi(sizeBubble,1);
+                nN1 = min(nN,length(chosenN1));
+                nN2 = min(sizeBubble-nN1,length(chosenN2));
+                while(nN1+nN2<sizeBubble)
+                    if(nN1<length(chosenN1))
+                        nN1 = nN1 + 1;
+                    end
+                    if(nN2<length(chosenN2))
+                        nN2 = nN2 + 1;
+                    end
+                end
+                chosenN1 = chosenN1(randsample(length(chosenN1),nN1));
+                chosenN2 = chosenN2(randsample(length(chosenN2),nN2));
+            end
             % distribution for people that use mask and apply social distancing
             useMask1 = useMask(chosenN1);
             useMask2 = useMask(chosenN2);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
             [~, useDist1] = histc(rand(numel(chosenN1),1),[0 1-pUseDist(numCounty) 1]);
             [~, useDist2] = histc(rand(numel(chosenN2),1),[0 1-pUseDist(numCounty) 1]);
             % 0-S 1-E 2-O 3-U 4-H 5-R 6-D
@@ -323,7 +357,6 @@ for day = 1:T
                 end
         end
     end
-    
     % save data
     is = (stateID==0)'; ie = (stateID==1)'; io = (stateID==2)';
     iu = (stateID==3)'; ih = (stateID==4)'; ir = (stateID==5)';
