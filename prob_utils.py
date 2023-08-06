@@ -111,8 +111,8 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
 
     function returns two vectors:
 
-    idToOptimalCts  <- an optimal contact number for each individual in the population. 
-    idToCurvature <- a utility function curvature parameter for each individual in the population.
+    IDtoOptimalCts  <- an optimal contact number for each individual in the population. 
+    IDtoCurvature <- a utility function curvature parameter for each individual in the population.
 
     Algorithm proposed:
     - Contacts selected by individuals are restricted to county limits.
@@ -146,17 +146,17 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
         random sample p_low_contact individuals of the county that are left and assign them a contact number in the upper q75 of contact_range_county
         for those, assign a proportion p_low_curvature_low_contact with low curvature and a proportion p_low_curvature_low_contact with low curvature.
 
-        Add these specs to idToOptimal and idToCurvature
+        Add these specs to IDtoOptimal and IDtoCurvature
 
-    return idToOptimal, idToCurvature
+    return IDtoOptimal, IDtoCurvature
 
     Note that only the susceptible individuals make an adaptive decision process here.
     (we are back to the non-relapse case, for simplicity). This will be only for susceptibles.
 
     """
 
-    idToOptimal = [0]*numIDs
-    idToCurvature = ['']*numIDs
+    IDtoOptimal = [0]*numIDs
+    IDtoCurvature = ['']*numIDs
 
     for county_idx in range(len(countyToIDs)):
 
@@ -218,7 +218,7 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
 
         for i in range(len(indv_labels)):
             idx_use = indv_labels[i][0]
-            idToOptimal[idx_use] = indv_labels[i][1]
-            idToCurvature[idx_use] = indv_labels[i][2]
+            IDtoOptimal[idx_use] = indv_labels[i][1]
+            IDtoCurvature[idx_use] = indv_labels[i][2]
 
-    return idToOptimal, idToCurvature
+    return IDtoOptimal, IDtoCurvature

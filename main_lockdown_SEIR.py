@@ -7,10 +7,13 @@ from matlab_utils import cell, randi, randperm, \
 # from prob_utils import readProbFile, setupFamilies
 from contact_utils import decide_contacts_susc, decide_contacts_pooling
 
+"""
+Networks model only using SEIR and a single age group.
+"""
 
 # Main Function:
-def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
-    idToAge,familyToIDs,countyToIDs, numCounties = 15, numInitExposed = 10,
+def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
+    _, familyToIDs,countyToIDs, numCounties = 15, numInitExposed = 10,
              min_coworkers = 5, delta_coworkers = 10,
              min_sporadic  = 1, delta_sporadic  = 15,
              coefSpor = .5, coefFam = 1, p  = .21,
@@ -24,12 +27,8 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
     minmaxBubble = pd.read_csv(minmaxBubbleFILE).values   
 
     #  Data.
-    #  daily data (S, E, R: totals O, U, H, D: per age group)
-    totalS, totalE, totalR  = [1]*T, [1]*T, [1]*T
-    totalO1, totalU1, totalH1, totalD1  = [1]*T, [1]*T, [1]*T, [1]*T
-    totalO2, totalU2, totalH2, totalD2  = [1]*T, [1]*T, [1]*T, [1]*T
-    totalO3, totalU3, totalH3, totalD3  = [1]*T, [1]*T, [1]*T, [1]*T
-    accumD1, accumD2, accumD3 = [1]*(T+1), [1]*(T+1), [1]*(T+1)
+    #  daily data (S, E, I, R: totals, D: accum)
+    totalS, totalE, totalI, totalR  = [1]*T, [1]*T, [1]*T, [1]*T
 
     #  2. Create household network
     #  keep track of...
@@ -51,7 +50,7 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
             countyToIDs[county_index] for county_index in counties_connected]))
 
     #  3. Initial conditions
-    #  states: 0-S 1-E 2-O 3-U 4-H 5-R 6-D
+    #  states: 0-S 1-E 2-I 3-R 4-D
     stateID  = [0]*numIDs
     timeStateID = [0]*numIDs
     #  numInitExposed initial exposed IDs
@@ -145,7 +144,7 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
         # state 2, 3, 4 can infect their contacts
 
         newExposedIDs = []   #  restart list of new E
-        indexStoE = list(np.where((np.array(stateID) == 2)|(np.array(stateID) == 3)|(np.array(stateID) == 4))[0])
+        indexStoE = list(np.where((np.array(stateID) == 2))[0]) # Infected
         StoE = []
         for i in range(3):
             for index in indexStoE:
@@ -170,7 +169,7 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
         puse_vals = rand(numCounties,1)
         pUseDist = [(minDist + 10*puse_val)/100 for puse_val in puse_vals]
 
-        #  0-S 1-E 2-O 3-U 4-H 5-R 6-D
+       #  states: 0-S 1-E 2-I 3-R 4-D
 
         for currID in StoE:
 
@@ -193,63 +192,37 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
                                 [0, 1 - pUseDist[numCounty], 1])
 
             states = [stateID[k] for k in edges[currID][0]] # layer 1
-            iu = [state == 3 for state in states]
-            id = [state == 2 or state == 4 for state in states]
-
-            p1 = sum(iu) + pO*sum(id)
+            i_inf = [state == 2 for state in states]
+            p1 = pO*sum(i_inf)
             risk = (1-coefFam*p)**(coefMin*p1)
 
             states = [stateID[k] for k in chosenN1] #  layer 2
-            iu = [state == 3 for state in states]
-            id = [state == 2 or state == 4 for state in states]
+            i_inf = [state == 2 for state in states]
 
-            for k in range(len(iu)):
-                if iu[k]:
-                    if (useMask1[k]==2 and useDist1[k]==2):
-                        risk = risk*((1-pDM)**coefMin)
-                    elif(useMask1[k]==2 and useDist1[k]==1):
-                        risk = risk*((1-pM)**coefMin)
-                    elif(useMask1[k]==1 and useDist1[k]==2):
-                        risk = risk*((1-pD)**coefMin)
-                    else:
-                        risk = risk*((1-p)**coefMin)
-
-            for k in range(len(id)):
-                if id[k]:
+            for k in range(len(i_inf)):
+                if i_inf[k]:
                     if(useMask1[k]==2 and useDist1[k]==2):
-                        risk = risk*((1-pDM)**(coefMin*pO))
+                        risk = risk*((1-pDM)**(coefMin))
                     elif(useMask1[k]==2 and useDist1[k]==1):
-                        risk = risk*((1-pM)**(coefMin*pO))
+                        risk = risk*((1-pM)**(coefMin))
                     elif(useMask1[k]==1 and useDist1[k]==2):
-                        risk = risk*((1-pD)**(coefMin*pO))
+                        risk = risk*((1-pD)**(coefMin))
                     else:
-                        risk = risk*((1-p)**(coefMin*pO))
+                        risk = risk*((1-p)**(coefMin))
 
             states = [stateID[k] for k in chosenN2] #  layer 3
-            iu = [state == 3 for state in states]
-            id = [state == 2 or state == 4 for state in states]
+            i_inf = [state == 2 for state in states]
 
-            for k in range(len(iu)):
-                if iu[k]:
+            for k in range(len(i_inf)):
+                if i_inf[k]:
                     if(useMask2[k]==2 and useDist2[k]==2):
-                        risk = risk*((1-coefSpor*pDM)**coefMin)
+                        risk = risk*((1-coefSpor*pDM)**(coefMin))
                     elif(useMask2[k]==2 and useDist2[k]==1):
-                        risk = risk*((1-coefSpor*pM)**coefMin)
+                        risk = risk*((1-coefSpor*pM)**(coefMin))
                     elif(useMask2[k]==1 and useDist2[k]==2):
-                        risk = risk*((1-coefSpor*pD)**coefMin)
+                        risk = risk*((1-coefSpor*pD)**(coefMin))
                     else:
-                        risk = risk*((1-coefSpor*p)**coefMin)
-
-            for k in range(len(id)):
-                if id[k]:
-                    if(useMask2[k]==2 and useDist2[k]==2):
-                        risk = risk*((1-coefSpor*pDM)**(coefMin*pO))
-                    elif(useMask2[k]==2 and useDist2[k]==1):
-                        risk = risk*((1-coefSpor*pM)**(coefMin*pO))
-                    elif(useMask2[k]==1 and useDist2[k]==2):
-                        risk = risk*((1-coefSpor*pD)**(coefMin*pO))
-                    else:
-                        risk = risk*((1-coefSpor*p)**(coefMin*pO))
+                        risk = risk*((1-coefSpor*p)**(coefMin))
 
             risk = 1 - risk #  probability infection
             rand_num = np.random.uniform(low=0, high=1, size=1)[0]
@@ -265,13 +238,14 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
             timeStateID[k] = day #  first mark S->E
             stateID[k] = 1
 
-        elegible = list(np.where((np.array(stateID) > 0) & (np.array(stateID) < 5 ))[0]) #find(stateID>0 & stateID<5) #  all transitions but S->E
-        indexD = []                           #  store new cases for accum data
+        elegible = list(np.where((np.array(stateID) > 0) & (np.array(stateID) < 3 ))[0])
+        indexD = []
 
         for ID in elegible:
             state = stateID[ID]
             time = day - timeStateID[ID]
-            age  = idToAge[ID]
+
+            # Correct this, change prob file: TODO
 
             if state == 1:
 
@@ -287,38 +261,10 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
 
             elif state == 2:
 
-                if age == 1:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0], acum['D1'][(time+1),:])
-                elif age == 2:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['D2'][(time+1),:])
-                elif age == 3:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['D3'][(time+1),:])
+                event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['I'][(time+1),:])
                 event = event[0]
 
                 if (event != 2):
-                    stateID[ID] = event
-                    timeStateID[ID] = day
-
-            elif state == 3:
-
-                event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['U'][(time+1),:])
-                event = event[0]
-                
-                if (event != 3):
-                    stateID[ID] = event
-                    timeStateID[ID] = day
-
-            elif state == 4:
-
-                if age == 1:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['HE1'][(time+1),:])
-                elif age == 2:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['HE2'][(time+1),:])
-                elif age == 3:
-                    event = histc(np.random.uniform(low=0, high=1, size=1)[0],acum['HE3'][(time+1),:])
-                event = event[0]    
-                
-                if(event != 4):
                     stateID[ID] = event
                     timeStateID[ID] = day
 
@@ -327,66 +273,24 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
         # ==================================================== #
 
         stateAge_ID_df = pd.DataFrame({
-            'stateID': stateID,
-            'idToAge': idToAge
+            'stateID': stateID
         })
-
-        accumD1[day+1] = accumD1[day] + sum([idToAge[k]==1 for k in indexD])
-        accumD2[day+1] = accumD2[day] + sum([idToAge[k]==2 for k in indexD])
-        accumD3[day+1] = accumD3[day] + sum([idToAge[k]==3 for k in indexD])
 
         totalS[day] = stateAge_ID_df[
             (stateAge_ID_df['stateID'] == 0)].shape[0]
         totalE[day] = stateAge_ID_df[
             (stateAge_ID_df['stateID'] == 1)].shape[0]
+        totalI[day] = stateAge_ID_df[
+            (stateAge_ID_df['stateID'] == 2)].shape[0]
         totalR[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 5)].shape[0]
-        # info according age groups
-
-        totalO1[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 2) & (stateAge_ID_df['idToAge'] == 1)].shape[0]
-        totalU1[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 3) & (stateAge_ID_df['idToAge'] == 1)].shape[0]
-        totalH1[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 4) & (stateAge_ID_df['idToAge'] == 1)].shape[0]
-        totalD1[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 6) & (stateAge_ID_df['idToAge'] == 1)].shape[0]
-        
-        totalO2[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 2) & (stateAge_ID_df['idToAge'] == 2)].shape[0]
-        totalU2[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 3) & (stateAge_ID_df['idToAge'] == 2)].shape[0]
-        totalH2[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 4) & (stateAge_ID_df['idToAge'] == 2)].shape[0]
-        totalD2[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 6) & (stateAge_ID_df['idToAge'] == 2)].shape[0]
-        
-        totalO3[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 2) & (stateAge_ID_df['idToAge'] == 3)].shape[0]
-        totalU3[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 3) & (stateAge_ID_df['idToAge'] == 3)].shape[0]
-        totalH3[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 4) & (stateAge_ID_df['idToAge'] == 3)].shape[0]
-        totalD3[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 6) & (stateAge_ID_df['idToAge'] == 3)].shape[0]
+            (stateAge_ID_df['stateID'] == 3)].shape[0]
 
     # Data to return: 
     dict_return = {
         'totalS': totalS,
         'totalE': totalE,
+        'totalI': totalI,
         'totalR': totalR,
-        'totalO1': totalO1,
-        'totalO2': totalO2, 
-        'totalO3': totalO3,
-        'totalU1': totalU1,
-        'totalU2': totalU2,
-        'totalU3': totalU3,
-        'totalH1': totalH1,
-        'totalH2': totalH2, 
-        'totalH3': totalH3, 
-        'totalD1': totalD1,
-        'totalD2': totalD2,
-        'totalD3': totalD3,
     }
     model_results = pd.DataFrame(dict_return)
     return model_results
