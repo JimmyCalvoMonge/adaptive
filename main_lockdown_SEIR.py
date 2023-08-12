@@ -36,9 +36,7 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
     minmaxBubble = pd.read_csv(minmaxBubbleFILE).values
 
     # Utility functions node information
-    IDtoOptimal, _, IDtoCurvature = setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs)
-
-    print(max(IDtoOptimal))
+    IDtoOptimal, IDtoOptimalCat, IDtoCurvature = setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs)
 
     #  Data.
     #  daily data (S, E, I, R: totals, D: accum)
@@ -47,9 +45,12 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
     # daily average contact data:
     avg_cts_ = pd.DataFrame({'day': range(T)})
     for cty in range(numCounties):
-        avg_cts_[f'county_{cty}'] = [0]*T
+        avg_cts_[f'county_{cty}_All'] = [0]*T
 
     avg_cts_s = avg_cts_.copy()
+    avg_cts_s[f'county_{cty}_Low'] = [0]*T
+    avg_cts_s[f'county_{cty}_Middle'] = [0]*T
+    avg_cts_s[f'county_{cty}_High'] = [0]*T
     avg_cts_e = avg_cts_.copy()
     avg_cts_i = avg_cts_.copy()
     avg_cts_r = avg_cts_.copy()
@@ -369,7 +370,9 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         # End of the day, update information obtained from process
         stateAge_ID_df = pd.DataFrame({
             'stateID': stateID,
-            'idToCounty': idToCounty
+            'idToCounty': idToCounty,
+            'IDtoOptimalCat': IDtoOptimalCat
+
         })
         totalS[day] = stateAge_ID_df[
             (stateAge_ID_df['stateID'] == 0)].shape[0]
@@ -392,11 +395,25 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
                     mean_cts.append(0)
                 else:
                     mean_cts.append(int(np.mean(contacts_per_susc_county)))
+            avg_cts_s.loc[day, f'county_{county}_All'] = mean_cts[0]
+            avg_cts_e.loc[day, f'county_{county}_All'] = mean_cts[1]
+            avg_cts_i.loc[day, f'county_{county}_All'] = mean_cts[2]
+            avg_cts_r.loc[day, f'county_{county}_All'] = mean_cts[3]
 
-            avg_cts_s.loc[day, f'county_{county}'] = mean_cts[0]
-            avg_cts_e.loc[day, f'county_{county}'] = mean_cts[1]
-            avg_cts_i.loc[day, f'county_{county}'] = mean_cts[2]
-            avg_cts_r.loc[day, f'county_{county}'] = mean_cts[3]
+            mean_cts_cat = []
+            for cat in ['Low', 'Middle', 'High']:
+                ids_county = stateAge_ID_df[
+                (stateAge_ID_df['stateID'] == 0) & 
+                (stateAge_ID_df['idToCounty'] == county) & 
+                (stateAge_ID_df['IDtoOptimalCat'] == cat)]['idToCounty'].tolist()
+                contacts_per_susc_county = [sum([len(edges[idd][lyr]) for lyr in range(3)]) for idd in ids_county]
+                if len(contacts_per_susc_county) == 0:
+                    mean_cts_cat.append(0)
+                else:
+                    mean_cts_cat.append(int(np.mean(contacts_per_susc_county)))
+            avg_cts_s.loc[day, f'county_{county}_Low'] = mean_cts_cat[0]
+            avg_cts_s.loc[day, f'county_{county}_Middle'] = mean_cts_cat[1]
+            avg_cts_s.loc[day, f'county_{county}_High'] = mean_cts_cat[2]
 
     # Data to return: 
     dict_return = {
