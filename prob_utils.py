@@ -156,6 +156,7 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
     """
 
     IDtoOptimal = [0]*numIDs
+    IDtoOptimalCat = ['']*numIDs
     IDtoCurvature = ['']*numIDs
 
     for county_idx in range(len(countyToIDs)):
@@ -206,19 +207,23 @@ def setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs):
         for idx, group_split in enumerate(all_groups_split):
             if idx == 0:
                 opt_ct = int(random.randint(q75, max_county))
+                opt_ct_cat = 'High'
             elif idx == 1:
                 opt_ct = int(random.randint(q25, q75))
+                opt_ct_cat = 'Medium'
             else:
                 opt_ct = int(random.randint(min_county, q25))
-                
+                opt_ct_cat = 'Low'
+
             for idd in group_split[0]:
-                indv_labels.append((idd, opt_ct, 'high'))
+                indv_labels.append((idd, opt_ct, opt_ct_cat, 'high'))
             for idd in group_split[1]:
-                indv_labels.append((idd, opt_ct, 'low'))
+                indv_labels.append((idd, opt_ct, opt_ct_cat, 'low'))
 
         for i in range(len(indv_labels)):
             idx_use = indv_labels[i][0]
             IDtoOptimal[idx_use] = indv_labels[i][1]
-            IDtoCurvature[idx_use] = indv_labels[i][2]
+            IDtoOptimalCat[idx_use] = indv_labels[i][2]
+            IDtoCurvature[idx_use] = indv_labels[i][3]
 
-    return IDtoOptimal, IDtoCurvature
+    return IDtoOptimal, IDtoOptimalCat, IDtoCurvature

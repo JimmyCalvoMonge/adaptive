@@ -4,8 +4,7 @@ from itertools import chain, compress, combinations
 from tqdm import tqdm
 from matlab_utils import cell, randi, randsample, rand, sort, histc
 # from prob_utils import readProbFile, setupFamilies
-from contact_utils import decide_contacts_susc, decide_contacts_pooling, decide_contacts_adaptive_node
-from prob_utils import setup_optimal_contacts
+from contact_utils import decide_contacts_susc, decide_contacts_pooling
 
 """
 Networks model only using SEIR and a single age group.
@@ -20,39 +19,15 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
              pD = .13, pM = .07, pDM = 0.04, pO = .10,
              coefMin = 0.5, pUseMask = .3, minDist  = 10,
              **kwargs):
-    
-    mu = 0
-    gamma = 0.08
-    beta = 0.25
-    phi = 0
-    kappa = 0.15
-    tau = 6
-    delta = 0.99986
-    steps = 100
 
     nearCountiesFILE = kwargs.get('nearCountiesFILE', './config_data/nearCounties.csv')
     minmaxBubbleFILE = kwargs.get('minmaxBubbleFILE', './config_data/minmaxBubble.csv')
     nearCounties = pd.read_csv(nearCountiesFILE).values
-    minmaxBubble = pd.read_csv(minmaxBubbleFILE).values
-
-    # Utility functions node information
-    IDtoOptimal, _, IDtoCurvature = setup_optimal_contacts(minmaxBubble, countyToIDs, numIDs)
-
-    print(max(IDtoOptimal))
+    minmaxBubble = pd.read_csv(minmaxBubbleFILE).values   
 
     #  Data.
-    #  daily data (S, E, I, R: totals, D: accum)
-    totalS, totalE, totalI, totalR  = [1]*T, [1]*T, [1]*T, [1]*T
-
-    # daily average contact data:
-    avg_cts_ = pd.DataFrame({'day': range(T)})
-    for cty in range(numCounties):
-        avg_cts_[f'county_{cty}'] = [0]*T
-
-    avg_cts_s = avg_cts_.copy()
-    avg_cts_e = avg_cts_.copy()
-    avg_cts_i = avg_cts_.copy()
-    avg_cts_r = avg_cts_.copy()
+    #  daily data (S, I, R: totals, D: accum)
+    totalS, totalI, totalR  = [1]*T, [1]*T, [1]*T
 
     #  2. Create household network
     #  keep track of...
@@ -74,30 +49,17 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
             countyToIDs[county_index] for county_index in counties_connected]))
 
     #  3. Initial conditions
-    #  states: 0-S 1-E 2-I 3-R 4-D
+    #  states: 0-S 1-I 2-R 4-D
     stateID  = [0]*numIDs
     timeStateID = [0]*numIDs
     #  numInitExposed initial exposed IDs
     newExposedIDs = randi(numIDs, numInitExposed)
     for k in newExposedIDs:
-        stateID[k] = 1 #  S -> E
+        stateID[k] = 1 #  S -> I
         timeStateID[k] = 1 #  on day 1
 
     #  4.
     for day in tqdm(range(T)):
-
-        # Start the day, record information so far
-        stateAge_ID_df = pd.DataFrame({
-            'stateID': stateID
-        })
-        totalS[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 0)].shape[0]
-        totalE[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 1)].shape[0]
-        totalI[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 2)].shape[0]
-        totalR[day] = stateAge_ID_df[
-            (stateAge_ID_df['stateID'] == 3)].shape[0]
 
         # ==================================================== #
         # ========== Update Contacts for Layers 0 and 1 ====== #
@@ -151,7 +113,7 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         # ==================================================== #
 
         layer = 2
-        vector = list(np.where((np.array(stateID) == 2)|(np.array(stateID) == 3))[0]) # find()
+        vector = list(np.where((np.array(stateID) == 1)|(np.array(stateID) == 2))[0]) # find()
         for j in range(numIDs):
             edges[j][layer] = []
         for currID in vector:
@@ -180,8 +142,8 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         # ===================================================== #
         # state 2, 3, 4 can infect their contacts
 
-        newExposedIDs = []   #  restart list of new E
-        indexStoE = list(np.where((np.array(stateID) == 2))[0]) # Infected
+        newExposedIDs = []   #  restart list of new I
+        indexStoE = list(np.where((np.array(stateID) == 1))[0]) # Infected
         StoE = []
         for i in range(3):
             for index in indexStoE:
@@ -202,7 +164,7 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
             minmaxBubble = randi(15, (numCounties, 2))
             minmaxBubble = sort(minmaxBubble, 2)
 
-        useMask  = randsample(2, numIDs, weights=[1-pUseMask, pUseMask])
+        useMask  = randsample(2, numIDs, repl=True, weights=[1-pUseMask, pUseMask])
         puse_vals = rand(numCounties,1)
         pUseDist = [(minDist + 10*puse_val)/100 for puse_val in puse_vals]
 
@@ -214,67 +176,10 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
 
             # 1. Decide effective contacts:
             numCounty  = idToCounty[currID]
-            optimalNode = IDtoOptimal[currID]
-            curvatureNone = IDtoCurvature[currID]
-
-            chosenN1_0=edges[currID][1]
-            chosenN2_0=edges[currID][2]
-
-            # Decide with random pooling and contact cap
-            # chosenN1, chosenN2 = decide_contacts_susc(
-            #     currID, numCounty, minmaxBubble,
-            #     chosenN1_0=chosenN1_0,
-            #     chosenN2_0=chosenN2_0)
-
-            # Decide with adaptive algorithm
-
-            if day == 0:
-                avg_cts_s_use = 0
-                avg_cts_e_use = 0
-                avg_cts_i_use = 0
-                avg_cts_r_use = 0
-            else:
-                idx = int(day-1)
-                avg_cts_s_use = avg_cts_s[f'county_{numCounty}'].tolist()[idx]
-                avg_cts_e_use = avg_cts_e[f'county_{numCounty}'].tolist()[idx]
-                avg_cts_i_use = avg_cts_i[f'county_{numCounty}'].tolist()[idx]
-                avg_cts_r_use = avg_cts_r[f'county_{numCounty}'].tolist()[idx]
-
-            chosenN1, chosenN2 = decide_contacts_adaptive_node(
-                optimal=optimalNode, curvature=curvatureNone,
-                minmaxBubble=minmaxBubble, numCounty=numCounty,
-                chosenN1_0=chosenN1_0, chosenN2_0=chosenN2_0,
-                totalSday=totalS[day], totalEday=totalE[day],
-                totalIday=totalI[day], totalRday=totalR[day],
-                mu=mu, gamma=gamma, beta=beta, phi=phi, kappa=kappa,
-                tau=tau, delta=delta, t_max=T, steps=steps,
-                avg_cts_s=avg_cts_s_use,
-                avg_cts_e=avg_cts_e_use,
-                avg_cts_i=avg_cts_i_use,
-                avg_cts_r=avg_cts_r_use)
-            
-            # Update edges for this id:
-            edges[currID][1] = chosenN1
-            edges[currID][2] = chosenN2
-
-            # Remove this id from other edges that are in chosenN1_0 and have this id, but they
-            # are not in chosenN1 (final contact selection)
-            for idd in chosenN1_0:
-                if currID in edges[idd][1] and currID not in chosenN1:
-                    edges[idd][1].remove(currID)
-
-            for idd in chosenN2_0:
-                if currID in edges[idd][2] and currID not in chosenN2:
-                    edges[idd][2].remove(currID)
-
-            # Make sure other edges also have this edge in their contact information
-            for idd in chosenN1:
-                if currID not in edges[idd][1]:
-                    edges[idd][1].append(currID)
-
-            for idd in chosenN2:
-                if currID not in edges[idd][2]:
-                    edges[idd][2].append(currID)
+            chosenN1, chosenN2 = decide_contacts_susc(
+                currID, numCounty, minmaxBubble,
+                chosenN1_0=edges[currID][1],
+                chosenN2_0=edges[currID][2])
 
             #  distribution for people that use mask and apply social distancing
             useMask1 = [useMask[k] + 1 for k in chosenN1]
@@ -286,12 +191,12 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
                                 [0, 1 - pUseDist[numCounty], 1])
 
             states = [stateID[k] for k in edges[currID][0]] # layer 1
-            i_inf = [state == 2 for state in states]
+            i_inf = [state == 1 for state in states]
             p1 = pO*sum(i_inf)
             risk = (1-coefFam*p)**(coefMin*p1)
 
             states = [stateID[k] for k in chosenN1] #  layer 2
-            i_inf = [state == 2 for state in states]
+            i_inf = [state == 1 for state in states]
 
             for k in range(len(i_inf)):
                 if i_inf[k]:
@@ -305,7 +210,7 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
                         risk = risk*((1-p)**(coefMin))
 
             states = [stateID[k] for k in chosenN2] #  layer 3
-            i_inf = [state == 2 for state in states]
+            i_inf = [state == 1 for state in states]
 
             for k in range(len(i_inf)):
                 if i_inf[k]:
@@ -366,11 +271,10 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         # ========== Save Data =============================== #
         # ==================================================== #
 
-        # End of the day, update information obtained from process
         stateAge_ID_df = pd.DataFrame({
-            'stateID': stateID,
-            'idToCounty': idToCounty
+            'stateID': stateID
         })
+
         totalS[day] = stateAge_ID_df[
             (stateAge_ID_df['stateID'] == 0)].shape[0]
         totalE[day] = stateAge_ID_df[
@@ -380,24 +284,6 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         totalR[day] = stateAge_ID_df[
             (stateAge_ID_df['stateID'] == 3)].shape[0]
 
-        # Update mean contacts per county/day/state
-        for county in range(numCounties):
-            mean_cts = []
-            for st in [0,1,2,3]:
-                ids_county = stateAge_ID_df[
-                (stateAge_ID_df['stateID'] == st) & 
-                (stateAge_ID_df['idToCounty'] == county)]['idToCounty'].tolist()
-                contacts_per_susc_county = [sum([len(edges[idd][lyr]) for lyr in range(3)]) for idd in ids_county]
-                if len(contacts_per_susc_county) == 0:
-                    mean_cts.append(0)
-                else:
-                    mean_cts.append(int(np.mean(contacts_per_susc_county)))
-
-            avg_cts_s.loc[day, f'county_{county}'] = mean_cts[0]
-            avg_cts_e.loc[day, f'county_{county}'] = mean_cts[1]
-            avg_cts_i.loc[day, f'county_{county}'] = mean_cts[2]
-            avg_cts_r.loc[day, f'county_{county}'] = mean_cts[3]
-
     # Data to return: 
     dict_return = {
         'totalS': totalS,
@@ -405,6 +291,5 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
         'totalI': totalI,
         'totalR': totalR,
     }
-
     model_results = pd.DataFrame(dict_return)
-    return model_results, avg_cts_s, avg_cts_e, avg_cts_i, avg_cts_r
+    return model_results

@@ -166,7 +166,7 @@ def mainCall(T, acum, numIDs,numFam,idToCounty,idToFamily,
             minmaxBubble = randi(15, (numCounties, 2))
             minmaxBubble = sort(minmaxBubble, 2)
 
-        useMask  = randsample(2, numIDs, repl=True, weights=[1-pUseMask, pUseMask])
+        useMask  = randsample(2, numIDs, weights=[1-pUseMask, pUseMask])
         puse_vals = rand(numCounties,1)
         pUseDist = [(minDist + 10*puse_val)/100 for puse_val in puse_vals]
 

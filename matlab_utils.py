@@ -52,7 +52,7 @@ def randsample(n,k,**kwargs):
         if replacement:
             return random.choices(range(n), k=k)
         else:
-            return random.sample(range(n), n)
+            return random.sample(range(n), k)
 
 
 def rand(size_1, size_2):

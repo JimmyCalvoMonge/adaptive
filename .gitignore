@@ -55,3 +55,5 @@ target/
 
 *.png
 *.pdf
+
+results/*.csv
