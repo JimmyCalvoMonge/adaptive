@@ -45,7 +45,7 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
     # daily average contact data:
     avg_cts_ = pd.DataFrame({'day': range(T)})
     for cty in range(numCounties):
-        avg_cts_[f'county_{cty}_All'] = [0]*T
+        avg_cts_[f'county_{cty}'] = [0]*T
 
     avg_cts_s = avg_cts_.copy()
     avg_cts_s[f'county_{cty}_Low'] = [0]*T
@@ -395,10 +395,10 @@ def mainCall_SEIR(T, acum, numIDs,numFam, idToCounty, idToFamily,
                     mean_cts.append(0)
                 else:
                     mean_cts.append(int(np.mean(contacts_per_susc_county)))
-            avg_cts_s.loc[day, f'county_{county}_All'] = mean_cts[0]
-            avg_cts_e.loc[day, f'county_{county}_All'] = mean_cts[1]
-            avg_cts_i.loc[day, f'county_{county}_All'] = mean_cts[2]
-            avg_cts_r.loc[day, f'county_{county}_All'] = mean_cts[3]
+            avg_cts_s.loc[day, f'county_{county}'] = mean_cts[0]
+            avg_cts_e.loc[day, f'county_{county}'] = mean_cts[1]
+            avg_cts_i.loc[day, f'county_{county}'] = mean_cts[2]
+            avg_cts_r.loc[day, f'county_{county}'] = mean_cts[3]
 
             mean_cts_cat = []
             for cat in ['Low', 'Middle', 'High']:
