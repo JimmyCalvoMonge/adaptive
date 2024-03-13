@@ -37,7 +37,6 @@ class MDP():
         self.trans_probs = trans_probs  # Transition probabilities
         self.horizon = horizon  # Planning horizon
         self.delta = delta  # Discount factor
-        self.logger = kwargs.get('logger', None)
 
         """
         A a list of actions.
@@ -49,14 +48,6 @@ class MDP():
         whose entries are functions that depend on a in A.
         horizon: an integer.
         """
-        self.verbose = kwargs.get('verbose', None)
-
-    # def _vprint(self, char):
-    #     if self.logger:
-    #         self.logger.info(char)
-    #     else:
-    #         if self.verbose:
-    #             print(char)
 
     def fit_optimal_values(self, **kwargs):
 
@@ -70,29 +61,7 @@ class MDP():
         x_history = [[x[h]] for h in self.S]
         # Backwards induction algorithm:
 
-        # self._vprint(f"""
-
-        # ##############################################
-        # ##### START DECISION PROCESS #################
-        # ##############################################
-
-        # Init point:
-
-        # {x}
-
-        # """)
-
         for t in range(self.horizon):
-
-            # self._vprint("""
-            # ----- New iteration through horizon ----
-            # ----------------------------------------
-            # """)
-
-            # self._vprint(f"""
-            #     Values of x (Value function vector) at this point:
-            #     {x}
-            # """)
 
             # This is the vector with entries u_h^t(a) for h in S
             reward_step = self.rewards[t]
@@ -109,40 +78,12 @@ class MDP():
 
             for h in range(self.N):
 
-                # self._vprint(f"""
-                # >>>>>>>>>>>>>>>>>> h:{h} <<<<<<<<<<<<<<<<<<
-                # """)
-
-                # rwrds = [reward_step[h](a) for a in self.A]
-                # val_funcs = [self.delta*sum([probs_step[h,k](a)*x[k] for
-                # k in range(self.N)]) for a in self.A]
-
-                # self._vprint(f"""
-                # Rewards:
-                # {rwrds}
-                # Delta*sums:
-                # {val_funcs}
-                # """)
-
-                # values = [reward_step[h](a) + \
-                # self.delta*sum([probs_step[h,k](a)*x[k]
-                # for k in range(self.N)]) for a in self.A]
-                # max_val = np.nanmax(np.array(values))
-                # max_arg = self.A[values.index(max_val)]
-
                 values = np.array([reward_step[h](
                     a) + self.delta*sum(
                     [probs_step[h, k](a)*x[k]
                      for k in range(self.N)]) for a in self.A])
                 max_val = np.nanmax(values)
                 max_arg = self.A[np.nanargmax(values)]
-
-                # self._vprint(f"""
-                # values: {values} <==================
-                # """)
-
-                # self._vprint(f" max val: {max_val}")
-                # self._vprint(f" max val arg: {max_arg}")
 
                 vals.append(max_val)
                 policies_step[h] = max_arg
@@ -155,20 +96,12 @@ class MDP():
 
         self.values = x
         self.values_history = x_history
+
         # We reverse the policies, because the for loop started in
         # the last time step in the horizon.
         policies.reverse()
         self.policies = policies
 
-        # self._vprint(f"""
-        # First Policy:
-        # {self.policies[0]}
-        # """)
-
-        # self._vprint("""
-
         # ##############################################
         # ##### ENDED DECISION PROCESS #################
         # ##############################################
-
-        # """)

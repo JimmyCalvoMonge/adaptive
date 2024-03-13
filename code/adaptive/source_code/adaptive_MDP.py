@@ -2,9 +2,7 @@ from scipy.integrate import odeint
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-from datetime import datetime
 import os
-import logging
 from tqdm import tqdm
 
 # Import Markov Decision Module
@@ -18,8 +16,7 @@ filename = getframeinfo(currentframe()).filename
 file_path_parent = Path(filename).resolve().parent
 base_path = os.path.dirname(os.path.dirname(file_path_parent))  # ./code
 
-# ========== Adaptive Method using utility
-# functions as input parameters ========== #
+# ========== Adaptive Method using utility functions as input parameters ========== #
 
 
 class Adaptive():
@@ -31,25 +28,6 @@ class Adaptive():
                  t_max, steps, x00,
                  max_contacts,
                  **kwargs):
-
-        # Logs:
-        logs = kwargs.get('logs', False)
-        if logs:
-            # A route in my system for logs:
-            logger_route = f"{base_path}/logs"
-            right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
-
-            if not os.path.exists(logger_route):
-                os.makedirs(logger_route, exist_ok=True)
-
-            logging.basicConfig(
-                filename=f'{logger_route}/logger_{right_now}_MDP.log',
-                filemode='w', format='%(asctime)s %(message)s',)
-            logger = logging.getLogger()
-            logger.setLevel(logging.INFO)
-            self.logger = logger
-        else:
-            self.logger = False
 
         # Initial parameters
         self.mu = mu
@@ -142,6 +120,7 @@ class Adaptive():
         return s, i, z
 
     def find_optimal_C_at_time(self, xt0, cs_star, ci_star, cz_star):
+
         """
         Find the value of C^s at time t.
         x_t0 = [s(t), i(t), z(t)]
@@ -224,8 +203,7 @@ class Adaptive():
         # Use a Markov Decision Process with
         # finite horizon to obtain the optimal policy and decision.
         MDP_adaptive = MDP.MDP(states, actions, rewards,
-                               trans_probs, horizon, delta,
-                               logger=self.logger, verbose=self.verbose)
+                               trans_probs, horizon, delta)
         MDP_adaptive.fit_optimal_values(init_point=init_point_use)
         return MDP_adaptive.policies, MDP_adaptive.values_history
 
@@ -237,7 +215,6 @@ class Adaptive():
         S, I, Z = [], [], []
         cs_history, ci_history, cz_history = [], [], []
         val_func_vals = []
-        # print("Patching unit time solutions ...")
 
         def compute_uni_solution(t):
             # State at end of last interval
@@ -283,7 +260,6 @@ class Adaptive():
 
                 if diff_vect < self.compute_max_t_threshold:
                     self.stopping_point = t
-                    # print(f"Stopped, found stopping condition at {t}")
                     break
 
             S = np.concatenate((S, s_interval), axis=0)
@@ -306,23 +282,26 @@ class Adaptive():
 
     def plot_ode_solution(self, t, title):
 
-        plt.plot(t, self.S, label="Susceptible")
-        plt.plot(t, self.I, label="Infected")
-        plt.plot(t, self.Z, label="Recovered")
+        plt.plot(t, self.S, label="Susceptible", color='blue', linewidth=3)
+        plt.plot(t, self.I, label="Infected", color='red', linewidth=3)
+        plt.plot(t, self.Z, label="Recovered", color='limegreen', linewidth=3)
         plt.title(f"Plot of S-I-Z functions ({title})")
         plt.xlabel("Time (t)")
         plt.ylabel("Number of individuals")
         plt.legend(loc="upper right")
         plt.rcParams["figure.figsize"] = (10, 6)
-        plt.show()
+        plt.savefig('data.png')  
+        plt.show() 
+        plt.close()
 
-    def plot_C(self, Cs):
+    def plot_C(self, Cs, **kwargs):
+        color = kwargs.get('color', 'blue')
         cs_unistep = []
         for i in tqdm(range(len(Cs))):
             cs_unistep = cs_unistep + [Cs[i]]*self.steps
 
         plt.plot(np.linspace(0, self.t_max, len(cs_unistep)),
-                 cs_unistep, label="C^s", linewidth=3)
+                 cs_unistep, label="Contacts", linewidth=3, color=color)
         plt.xlabel("Time (t)")
         plt.ylabel("Optimal contact selected")
         plt.legend(loc="upper right")

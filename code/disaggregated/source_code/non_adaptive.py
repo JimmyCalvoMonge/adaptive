@@ -1,10 +1,7 @@
 from scipy.integrate import odeint
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
 import os
-import logging
-from tqdm import tqdm
 
 # base_path
 from inspect import currentframe, getframeinfo
@@ -18,17 +15,6 @@ base_path = os.path.dirname(os.path.dirname(file_path_parent))  # ./code
 class NonAdaptive():
 
     def __init__(self, mu, gamma, beta, phi, Cs, Ci, Cz, x00, t_max, **kwargs):
-
-        # Logs:
-        logger_route = f"{base_path}/logs"
-        right_now = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
-        if not os.path.exists(logger_route):
-            os.makedirs(logger_route, exist_ok=True)
-        logging.basicConfig(filename=f'{logger_route}/logger_{right_now}.log',
-                            filemode='w', format='%(asctime)s %(message)s',)
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-        self.logger = logger
 
         # Initial parameters
         self.mu = mu
@@ -78,7 +64,7 @@ class NonAdaptive():
 
         return [dsdt, didt, dzdt]
 
-    def solve_odes_system_odeint(self):
+    def solve_odes_system(self):
         """
         Solve the classical system with initial conditions
         """
@@ -93,98 +79,6 @@ class NonAdaptive():
         self.Z = x[0][:, 2]
 
         self.full_solution = x
-
-    # ============ Using Four Step Runge-Kutta ============ #
-    # Taken from https://medium.com/geekculture/runge-kutta-
-    # numerical-integration-of-ordinary-differential-equations-in-python-9c8ab7fb279c
-
-    def ode_system(self, _t, _y):
-        """
-        system of first order differential equations
-        _t: discrete time step value
-        _y: state vector [y1, y2, y3]
-        """
-
-        C = self.Cs*self.Ci*self.N / \
-            (_y[0]*self.Cs + _y[1]*self.Ci + _y[2]*self.Cz)
-
-        dsdt = -C*self.beta*_y[0]*(_y[1]/self.N) + \
-            self.mu*self.N - self.mu*_y[0]
-        didt = C*self.beta*_y[0]*(_y[1]/self.N) + self.phi * \
-            _y[2]*(_y[1]/self.N) - (self.gamma + self.mu)*_y[1]
-        dzdt = self.gamma*_y[1] - self.phi*_y[2]*(_y[1]/self.N) - self.mu*_y[2]
-
-        return np.array([dsdt, didt, dzdt])
-
-    def rk4(self, func, tk, _yk, _dt=0.01, **kwargs):
-        """
-        single-step fourth-order numerical integration (RK4) method
-        func: system of first order ODEs
-        tk: current time step
-        _yk: current state vector [y1, y2, y3, ...]
-        _dt: discrete time step size
-        **kwargs: additional parameters for ODE system
-        returns: y evaluated at time k+1
-        """
-
-        # evaluate derivative at several stages within time interval
-        f1 = func(tk, _yk, **kwargs)
-        f2 = func(tk + _dt / 2, _yk + (f1 * (_dt / 2)), **kwargs)
-        f3 = func(tk + _dt / 2, _yk + (f2 * (_dt / 2)), **kwargs)
-        f4 = func(tk + _dt, _yk + (f3 * _dt), **kwargs)
-
-        # return an average of the derivative over tk, tk + dt
-        return _yk + (_dt / 6) * (f1 + (2 * f2) + (2 * f3) + f4)
-
-    def solve_odes_system_RK4(self):
-
-        dt = self.dt
-        time = np.arange(0.0, self.t_max + dt, dt)
-        self.time = time
-
-        # second order system initial conditions [y1, y2] at t = 1
-        y0 = np.array(self.x00)
-
-        # ==============================================================
-        # propagate state
-
-        # simulation results
-        state_history = []
-
-        # initialize yk
-        yk = y0
-
-        # intialize time
-        t = 0
-        range_use = time
-
-        if self.tqdm:
-            range_use = tqdm(time)
-
-        # approximate y at time t
-        for t in range_use:
-            state_history.append(yk)
-            yk = self.rk4(self.ode_system, t, yk, dt)
-
-        # convert list to numpy array
-        state_history = np.array(state_history)
-
-        self.full_solution = state_history
-
-        self.S = state_history[:, 0]
-        self.I = state_history[:, 1]
-        self.Z = state_history[:, 2]
-
-    def solve_odes_system(self, **kwargs):
-
-        method = kwargs.get('method', 'RK4')
-
-        # print(f" Started solving system of ODEs. Method: {method}. ")
-
-        if method == 'RK4':
-            self.solve_odes_system_RK4()
-        else:
-            self.solve_odes_system_odeint()
 
     def plot_ode_solution(self, **kwargs):
 
